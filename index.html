@@ -2,6 +2,17 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
+  <!-- PWA 설정 -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Meet Ball">
+  <meta name="application-name" content="Meet Ball">
+  <meta name="theme-color" content="#0a1628">
+  <link rel="manifest" href="manifest.json">
+  <!-- 앱 아이콘 (iOS) -->
+  <link rel="apple-touch-icon" href="icon-192.png">
+
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>🎳 Meet Ball</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Bebas+Neue&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -521,7 +532,7 @@
   const db = getDatabase(app);
   window._fb = { db, ref, set, get, onValue };
 
-  const KEYS = ['data','finePayments','extraFines','prizes','dues','genders','notices','sponsors','leagues','tourneys','votes'];
+  const KEYS = ['data','finePayments','extraFines','prizes','dues','genders','notices','sponsors','leagues','tourneys','votes','banggae'];
 
   function startSync() {
     const statusEl = document.getElementById('fbStatus');
@@ -547,6 +558,7 @@
             leagues: 'bowlingApp_leagues',
             tourneys: 'bowlingApp_tourney',
             votes: 'bowlingApp_votes',
+            banggae: 'bowlingApp_banggae',
           }[key];
           if (lsKey) {
             try { localStorage.setItem(lsKey, JSON.stringify(val)); } catch(e) {}
@@ -590,6 +602,7 @@
     <button class="nav-btn" onclick="showSection('tourney',this)">🗳️ 대회참가비</button>
     <button class="nav-btn" onclick="showSection('vote',this)">🗳️ 정기전 투표</button>
     <button class="nav-btn" onclick="showSection('teambuilder',this)">⚡ 팀 편성</button>
+    <button class="nav-btn" onclick="showSection('banggae',this)">⚡ 번개</button>
     <button class="nav-btn" onclick="showSection('sponsor',this)">🎁 찬조</button>
     <button class="nav-btn" id="membersNavBtn" onclick="showSection('members',this)" style="display:none;">⚙️ 회원관리</button>
     <button class="btn btn-secondary" id="dataMenuBtn" onclick="toggleDataMenu()"
@@ -819,6 +832,13 @@
   <div class="page-title">TEAM BUILDER</div>
   <div class="page-sub">참가자 에버 기반 균등 팀 편성</div>
   <div id="teambuilderContent"></div>
+</section>
+
+<!-- 번개 -->
+<section id="banggae" class="section">
+  <div class="page-title">⚡ 번개</div>
+  <div class="page-sub">친목 번개 · 참석 투표 및 팀 편성</div>
+  <div id="banggaeContent"></div>
 </section>
 
 <!-- ⑧ 찬조 내역 -->
@@ -1413,6 +1433,7 @@ function showSection(id, btn) {
   if(id === 'tourney') renderTourney();
   if(id === 'vote') renderVote();
   if(id === 'teambuilder') renderTeamBuilder();
+  if(id === 'banggae') renderBanggae();
   if(id === 'sponsor') renderSponsor();
 }
 
@@ -2993,6 +3014,7 @@ function deletePlayerFromRound(roundId, name) {
 function refreshAllViews() {
   refreshAll();
   if(typeof renderNotice === "function") renderNotice();
+  if(typeof renderBanggae === "function") { const s = document.getElementById('banggae'); if(s && s.classList.contains('active')) renderBanggae(); }
   if(typeof renderFines === "function") {
     const s = document.getElementById("fines");
     if(s && s.classList.contains("active")) renderFines();
@@ -3100,6 +3122,223 @@ function saveTourneys(data) {
   try { localStorage.setItem(TOURNEY_KEY, JSON.stringify(data)); } catch(e) {}
   window.fbSave && window.fbSave('tourneys', data);
 }
+
+// ════════════════════════════════════════════════════
+// ⚡ 번개 관련 함수
+// ════════════════════════════════════════════════════
+const BANGGAE_KEY = 'bowlingApp_banggae';
+
+function loadBanggae() {
+  try { const r = localStorage.getItem(BANGGAE_KEY); if(r) return JSON.parse(r); } catch(e) {}
+  return { events: [] };
+}
+function saveBanggae(data) {
+  try { localStorage.setItem(BANGGAE_KEY, JSON.stringify(data)); } catch(e) {}
+  window.fbSave && window.fbSave('banggae', data);
+}
+
+function createBanggae() {
+  if(!isAdmin) { toast('관리자만 만들 수 있습니다.', 'error'); return; }
+  const title    = document.getElementById('bg_title').value.trim();
+  const date     = document.getElementById('bg_date').value;
+  const deadline = document.getElementById('bg_deadline').value;
+  if(!title) { toast('번개 제목을 입력하세요.', 'error'); return; }
+  const b = loadBanggae();
+  const data = loadData();
+  const members = Object.keys(data.members || BASE_PLAYERS);
+  const votes = {};
+  members.forEach(m => { votes[m] = ''; });
+  b.events.unshift({
+    id: 'bg' + Date.now(),
+    title,
+    date: date || new Date().toISOString().slice(0,10),
+    deadline: deadline || '',
+    status: 'open',
+    votes
+  });
+  saveBanggae(b);
+  document.getElementById('bg_title').value = '';
+  renderBanggae();
+  toast('번개 투표가 생성됐습니다!');
+}
+
+function castBanggaeVote(eventId, name, choice) {
+  const b = loadBanggae();
+  const ev = b.events.find(e => e.id === eventId);
+  if(!ev || ev.status !== 'open') { toast('마감된 투표입니다.', 'error'); return; }
+  ev.votes[name] = choice;
+  saveBanggae(b);
+  renderBanggae();
+  const labels = { yes:'✅ 참석', no:'❌ 불참' };
+  toast(`${name} → ${labels[choice]} 선택 완료!`);
+
+  // 참석 선택 시 팀편성으로 자동이동 + 체크
+  if(choice === 'yes') {
+    setTimeout(() => {
+      const tbBtn = [...document.querySelectorAll('.nav-btn')].find(b => b.textContent.includes('팀 편성'));
+      showSection('teambuilder', tbBtn || null);
+      setTimeout(() => {
+        const chk = document.getElementById(`tb_${name}`);
+        if(chk && !chk.checked) { chk.checked = true; chk.dispatchEvent(new Event('change')); }
+        const lbl = document.getElementById(`tb_label_${name}`);
+        if(lbl) { lbl.style.borderColor = '#22c55e'; lbl.style.background = 'rgba(34,197,94,0.1)'; }
+      }, 100);
+    }, 500);
+  }
+}
+
+function closeBanggae(eventId) {
+  if(!isAdmin) return;
+  const b = loadBanggae();
+  const ev = b.events.find(e => e.id === eventId);
+  if(ev) { ev.status = 'closed'; saveBanggae(b); renderBanggae(); toast('번개 투표 마감!'); }
+}
+
+function deleteBanggae(eventId) {
+  if(!isAdmin) return;
+  if(!confirm('이 번개를 삭제할까요?')) return;
+  const b = loadBanggae();
+  b.events = b.events.filter(e => e.id !== eventId);
+  saveBanggae(b);
+  renderBanggae();
+  toast('삭제됐습니다.');
+}
+
+// 마감시간 자동 체크
+setInterval(() => {
+  const b = loadBanggae();
+  let changed = false;
+  b.events.forEach(ev => {
+    if(ev.status === 'open' && ev.deadline && new Date() >= new Date(ev.deadline)) {
+      ev.status = 'closed'; changed = true;
+    }
+  });
+  if(changed) { saveBanggae(b); renderBanggae(); }
+}, 30000);
+
+function renderBanggae() {
+  const container = document.getElementById('banggaeContent');
+  if(!container) return;
+  const b = loadBanggae();
+  const data = loadData();
+  const allMembers = Object.keys(data.members || BASE_PLAYERS).sort();
+
+  container.innerHTML = `
+  ${isAdmin ? `
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:24px;">
+    <div style="font-weight:700;font-size:14px;margin-bottom:14px;">⚡ 번개 만들기</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+      <div class="input-group">
+        <label>번개 제목</label>
+        <input type="text" id="bg_title" placeholder="예) 3월 번개 모임"
+          style="width:220px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:14px;outline:none;font-family:inherit;">
+      </div>
+      <div class="input-group">
+        <label>날짜</label>
+        <input type="date" id="bg_date" value="${new Date().toISOString().slice(0,10)}"
+          style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:14px;outline:none;font-family:inherit;">
+      </div>
+      <div class="input-group">
+        <label>마감시간 (선택)</label>
+        <input type="datetime-local" id="bg_deadline"
+          style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:14px;outline:none;font-family:inherit;">
+      </div>
+      <button class="btn btn-primary" onclick="createBanggae()">⚡ 번개 생성</button>
+    </div>
+  </div>` : ''}
+
+  ${b.events.length === 0
+    ? `<div class="empty"><div class="empty-icon">⚡</div><div class="empty-text">진행 중인 번개가 없습니다</div><div class="empty-sub">관리자가 번개를 생성하면 참석 여부를 선택할 수 있습니다</div></div>`
+    : b.events.map(ev => {
+        const yesVoters = Object.entries(ev.votes).filter(([,v])=>v==='yes').map(([n])=>n);
+        const noVoters  = Object.entries(ev.votes).filter(([,v])=>v==='no').map(([n])=>n);
+        const total     = Object.keys(ev.votes).length;
+        const responded = Object.values(ev.votes).filter(v=>v!=='').length;
+        const isOpen    = ev.status === 'open';
+        const deadlineStr = ev.deadline
+          ? new Date(ev.deadline).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}) + ' 마감'
+          : '';
+        return `
+        <div style="background:var(--card);border:1px solid ${isOpen?'rgba(34,197,94,0.3)':'var(--border)'};border-radius:16px;overflow:hidden;margin-bottom:20px;">
+          <div style="padding:16px 20px;background:var(--bg3);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+            <div>
+              <div style="font-weight:700;font-size:15px;">${ev.title}</div>
+              <div style="font-size:11px;color:var(--text3);margin-top:3px;">${ev.date}${deadlineStr?' · ⏰ '+deadlineStr:''} · ${responded}/${total}명 응답</div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <span style="font-size:11px;padding:3px 10px;border-radius:20px;font-weight:700;
+                background:${isOpen?'rgba(34,197,94,0.15)':'rgba(100,116,139,0.15)'};
+                color:${isOpen?'var(--green)':'var(--text3)'};">
+                ${isOpen?'🟢 진행중':'⛔ 마감'}
+              </span>
+              ${isAdmin && isOpen ? `<button onclick="closeBanggae('${ev.id}')" style="font-size:11px;padding:4px 10px;border-radius:8px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:var(--red);cursor:pointer;">마감</button>` : ''}
+              ${isAdmin ? `<button onclick="deleteBanggae('${ev.id}')" style="font-size:11px;padding:4px 10px;border-radius:8px;background:var(--bg3);border:1px solid var(--border);color:var(--text3);cursor:pointer;">삭제</button>` : ''}
+            </div>
+          </div>
+          <div style="padding:16px 20px;">
+            <!-- 참석 현황 요약 -->
+            <div style="display:flex;gap:12px;margin-bottom:16px;">
+              <div style="flex:1;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);border-radius:12px;padding:12px;text-align:center;">
+                <div style="font-size:22px;font-weight:900;color:var(--green);">${yesVoters.length}</div>
+                <div style="font-size:11px;color:var(--text3);margin-top:2px;">✅ 참석</div>
+                <div style="font-size:11px;color:var(--text2);margin-top:4px;">${yesVoters.join(', ') || '-'}</div>
+              </div>
+              <div style="flex:1;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:12px;padding:12px;text-align:center;">
+                <div style="font-size:22px;font-weight:900;color:var(--red);">${noVoters.length}</div>
+                <div style="font-size:11px;color:var(--text3);margin-top:2px;">❌ 불참</div>
+                <div style="font-size:11px;color:var(--text2);margin-top:4px;">${noVoters.join(', ') || '-'}</div>
+              </div>
+            </div>
+            <!-- 개인 투표 버튼 -->
+            <div style="display:flex;flex-wrap:wrap;gap:8px;">
+              ${allMembers.map(name => {
+                const v = ev.votes[name];
+                const btnYes = `background:${v==='yes'?'rgba(34,197,94,0.2)':'var(--bg3)'};border:1px solid ${v==='yes'?'var(--green)':'var(--border)'};color:${v==='yes'?'var(--green)':'var(--text2)'}`;
+                const btnNo  = `background:${v==='no'?'rgba(239,68,68,0.2)':'var(--bg3)'};border:1px solid ${v==='no'?'var(--red)':'var(--border)'};color:${v==='no'?'var(--red)':'var(--text2)'}`;
+                return `
+                <div style="display:flex;align-items:center;gap:4px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:6px 10px;">
+                  <span style="font-size:12px;font-weight:700;min-width:40px;">${name}</span>
+                  ${isOpen ? `
+                  <button onclick="castBanggaeVote('${ev.id}','${name}','yes')"
+                    style="font-size:11px;padding:3px 8px;border-radius:6px;cursor:pointer;${btnYes}">✅</button>
+                  <button onclick="castBanggaeVote('${ev.id}','${name}','no')"
+                    style="font-size:11px;padding:3px 8px;border-radius:6px;cursor:pointer;${btnNo}">❌</button>
+                  ` : `<span style="font-size:11px;color:${v==='yes'?'var(--green)':v==='no'?'var(--red)':'var(--text3)'};">${v==='yes'?'✅ 참석':v==='no'?'❌ 불참':'미응답'}</span>`}
+                </div>`;
+              }).join('')}
+            </div>
+            <!-- 팀편성 바로가기 -->
+            ${yesVoters.length > 0 ? `
+            <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);">
+              <button onclick="goBanggaeTeam(${JSON.stringify(yesVoters)})"
+                style="width:100%;padding:10px;border-radius:10px;background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.3);color:var(--yellow);font-weight:700;font-size:13px;cursor:pointer;">
+                ⚡ 참석자 ${yesVoters.length}명으로 팀 편성하기
+              </button>
+            </div>` : ''}
+          </div>
+        </div>`;
+      }).join('')
+  }`;
+}
+
+function goBanggaeTeam(yesVoters) {
+  const tbBtn = [...document.querySelectorAll('.nav-btn')].find(b => b.textContent.includes('팀 편성'));
+  showSection('teambuilder', tbBtn || null);
+  setTimeout(() => {
+    // 모든 체크박스 해제 후 참석자만 체크
+    document.querySelectorAll('[id^="tb_"]').forEach(chk => {
+      if(chk.tagName === 'INPUT') chk.checked = false;
+    });
+    yesVoters.forEach(name => {
+      const chk = document.getElementById(`tb_${name}`);
+      if(chk) { chk.checked = true; chk.dispatchEvent(new Event('change')); }
+      const lbl = document.getElementById(`tb_label_${name}`);
+      if(lbl) { lbl.style.borderColor = '#22c55e'; lbl.style.background = 'rgba(34,197,94,0.1)'; }
+    });
+    toast(`참석자 ${yesVoters.length}명 자동 선택됐습니다!`);
+  }, 100);
+}
+
 
 function addTourneyEvent() {
   if(!isAdmin) { toast('관리자만 등록할 수 있습니다.', 'error'); return; }
@@ -3387,22 +3626,48 @@ function saveVotes(data) {
 
 function createVotePoll() {
   if(!isAdmin) { toast('관리자만 투표를 만들 수 있습니다.', 'error'); return; }
-  const title = document.getElementById('vp_title').value.trim();
-  const date  = document.getElementById('vp_date').value;
-  const round = document.getElementById('vp_round').value.trim();
+  const title    = document.getElementById('vp_title').value.trim();
+  const date     = document.getElementById('vp_date').value;
+  const roundNum = document.getElementById('vp_round_num').value;   // 1~24
+  const roundMon = document.getElementById('vp_round_mon').value;   // 1~12
+  const deadline = document.getElementById('vp_deadline').value;    // datetime-local
   if(!title) { toast('투표 제목을 입력하세요.', 'error'); return; }
+  const roundLabel = roundMon && roundNum ? `${roundMon}월 ${roundNum}회차` : '';
   const v = loadVotes();
   const data = loadData();
   const members = Object.keys(data.members || BASE_PLAYERS);
   const votes = {};
   members.forEach(m => { votes[m] = ''; });
-  v.polls.unshift({ id: 'vp' + Date.now(), title, date: date || new Date().toISOString().slice(0,10), roundLabel: round, status: 'open', votes });
+  v.polls.unshift({
+    id: 'vp' + Date.now(),
+    title,
+    date: date || new Date().toISOString().slice(0,10),
+    roundLabel,
+    deadline: deadline || '',
+    status: 'open',
+    votes
+  });
   saveVotes(v);
   document.getElementById('vp_title').value = '';
-  document.getElementById('vp_round').value = '';
   renderVote();
   toast('투표 생성 완료! 회원들이 참가 여부를 선택할 수 있습니다.');
 }
+
+// 마감시간 자동 체크
+function checkVoteDeadlines() {
+  const v = loadVotes();
+  let changed = false;
+  v.polls.forEach(poll => {
+    if(poll.status === 'open' && poll.deadline) {
+      if(new Date() >= new Date(poll.deadline)) {
+        poll.status = 'closed';
+        changed = true;
+      }
+    }
+  });
+  if(changed) { saveVotes(v); renderVote(); }
+}
+setInterval(checkVoteDeadlines, 30000); // 30초마다 체크
 
 function castVote(pollId, name, choice) {
   const v = loadVotes();
@@ -3495,10 +3760,24 @@ function renderVote() {
           style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:14px;outline:none;font-family:inherit;">
       </div>
       <div class="input-group">
-        <label>회차 (선택)</label>
-        <input type="text" id="vp_round" list="vp_round_list" placeholder="예) 3월 2회차"
-          style="width:140px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:14px;outline:none;font-family:inherit;">
-        <datalist id="vp_round_list">${roundOpts.map(r=>`<option value="${r}">`).join('')}</datalist>
+        <label>월</label>
+        <select id="vp_round_mon" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:14px;outline:none;font-family:inherit;">
+          ${[1,2,3,4,5,6,7,8,9,10,11,12].map(m=>`<option value="${m}" ${m===new Date().getMonth()+1?'selected':''}>${m}월</option>`).join('')}
+        </select>
+      </div>
+      <div class="input-group">
+        <label>회차</label>
+        <select id="vp_round_num" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:14px;outline:none;font-family:inherit;">
+          <option value="1">1회차</option>
+          <option value="2">2회차</option>
+          <option value="3">3회차</option>
+          <option value="4">4회차</option>
+        </select>
+      </div>
+      <div class="input-group">
+        <label>마감시간 (선택)</label>
+        <input type="datetime-local" id="vp_deadline"
+          style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:14px;outline:none;font-family:inherit;">
       </div>
       <button class="btn btn-primary" onclick="createVotePoll()">📋 투표 생성</button>
     </div>
@@ -3535,7 +3814,7 @@ function renderVote() {
                 </span>
                 <div style="font-weight:700;font-size:16px;">${poll.title}</div>
               </div>
-              <div style="font-size:12px;color:var(--text3);">${poll.date}${poll.roundLabel?' · '+poll.roundLabel:''} · ${responded}/${total}명 응답</div>
+              <div style="font-size:12px;color:var(--text3);">${poll.date}${poll.roundLabel?' · '+poll.roundLabel:''} · ${responded}/${total}명 응답${poll.deadline ? ' · ⏰ ' + new Date(poll.deadline).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}) + ' 마감' : ''}</div>
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
               ${isAdmin && poll.status==='open' ? `<button onclick="closePoll('${poll.id}')" class="btn btn-secondary" style="font-size:12px;padding:6px 12px;">🔒 마감</button>` : ''}
@@ -4127,5 +4406,15 @@ renderTeamBuilder();
     </div>
   </div>
 </div>
+
+<script>
+  if('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js')
+        .then(() => console.log('SW 등록됨'))
+        .catch(e => console.log('SW 오류:', e));
+    });
+  }
+</script>
 </body>
 </html>

@@ -3355,21 +3355,10 @@ function renderBanggae() {
 }
 
 function goBanggaeTeam(yesVoters) {
-  const tbBtn = [...document.querySelectorAll('.nav-btn')].find(b => b.textContent.includes('팀 편성'));
-  showSection('teambuilder', tbBtn || null);
-  setTimeout(() => {
-    // 모든 체크박스 해제 후 참석자만 체크
-    document.querySelectorAll('[id^="tb_"]').forEach(chk => {
-      if(chk.tagName === 'INPUT') chk.checked = false;
-    });
-    yesVoters.forEach(name => {
-      const chk = document.getElementById(`tb_${name}`);
-      if(chk) { chk.checked = true; chk.dispatchEvent(new Event('change')); }
-      const lbl = document.getElementById(`tb_label_${name}`);
-      if(lbl) { lbl.style.borderColor = '#22c55e'; lbl.style.background = 'rgba(34,197,94,0.1)'; }
-    });
-    toast(`참석자 ${yesVoters.length}명 자동 선택됐습니다!`);
-  }, 100);
+  window._teamBuilderPreset = yesVoters;
+  showSection('teambuilder', document.querySelector('.nav-btn[onclick*="teambuilder"]'));
+  renderTeamBuilder(yesVoters);
+  toast(`참석자 ${yesVoters.length}명으로 팀 편성 화면으로 이동했습니다!`);
 }
 
 

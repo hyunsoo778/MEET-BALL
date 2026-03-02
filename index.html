@@ -515,6 +515,24 @@
     font-family:inherit;
   }
   .member-del-btn:hover { background:rgba(239,68,68,0.15); }
+
+  .money-tab {
+    padding: 7px 16px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--bg3);
+    color: var(--text2);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .15s;
+    font-family: inherit;
+  }
+  .money-tab.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
 </style>
 
 <!-- Firebase Realtime Database -->
@@ -596,14 +614,9 @@
     <button class="nav-btn" onclick="showSection('ranking',this)">🏆 순위</button>
     <button class="nav-btn" onclick="showSection('rounds',this)">📅 회차기록</button>
     <button class="nav-btn" onclick="showSection('players',this)">👥 선수현황</button>
-    <button class="nav-btn" onclick="showSection('fines',this)">💸 벌금관리</button>
-    <button class="nav-btn" onclick="showSection('prizes',this)">🏆 상금관리</button>
-    <button class="nav-btn" onclick="showSection('dues',this)">💳 회비관리</button>
-    <button class="nav-btn" onclick="showSection('tourney',this)">🗳️ 대회참가비</button>
-    <button class="nav-btn" onclick="showSection('vote',this)">🗳️ 정기전 투표</button>
+    <button class="nav-btn" onclick="showSection('dues',this)">💰 회비·벌금·상금</button>
+    <button class="nav-btn" onclick="showSection('vote',this)">🗳️ 투표</button>
     <button class="nav-btn" onclick="showSection('teambuilder',this)">⚡ 팀 편성</button>
-    <button class="nav-btn" onclick="showSection('banggae',this)">⚡ 번개</button>
-    <button class="nav-btn" onclick="showSection('sponsor',this)">🎁 찬조</button>
     <button class="nav-btn" id="membersNavBtn" onclick="showSection('members',this)" style="display:none;">⚙️ 회원관리</button>
     <button class="btn btn-secondary" id="dataMenuBtn" onclick="toggleDataMenu()"
       style="display:none;font-size:12px;padding:5px 12px;gap:4px;">💾 저장</button>
@@ -784,47 +797,62 @@
   <div id="playersGrid" class="stats-grid"></div>
 </section>
 
-<!-- ⑤ 벌금 관리 (신규) -->
-<section id="fines" class="section">
-  <div class="page-title">FINE MGMT</div>
-  <div class="page-sub">회차별 벌금 납부 현황 · 체크박스로 납부 확인</div>
 
-  <!-- 탭 -->
-  <div class="tabs">
-    <button class="tab active" onclick="switchFineTab('by_round',this)">📅 회차별 현황</button>
-    <button class="tab" onclick="switchFineTab('by_player',this)">👤 선수별 누적</button>
-    <button class="tab" onclick="switchFineTab('extra',this)">➕ 추가 벌금</button>
-  </div>
 
-  <div id="fineContent"></div>
-</section>
 
-<!-- ⑥ 상금 관리 -->
-<section id="prizes" class="section">
-  <div class="page-title">PRIZE MGMT</div>
-  <div class="page-sub">상금 지급 내역 관리 · 관리자가 직접 금액 입력</div>
-  <div id="prizesContent"></div>
-</section>
 
 <!-- ⑦ 회비 관리 -->
 <section id="dues" class="section">
-  <div class="page-title">DUES MGMT</div>
-  <div class="page-sub">월 회비 3만원 · 납부 현황 관리</div>
-  <div id="duesContent"></div>
+  <div class="page-title">💰 회비 · 벌금 · 상금</div>
+  <div class="page-sub">회비 / 벌금 / 상금 / 대회참가비 / 찬조 통합 관리</div>
+  <!-- 탭 버튼 -->
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:20px;">
+    <button id="moneytab_dues"    class="money-tab active" onclick="switchMoneyTab('dues')">💳 회비</button>
+    <button id="moneytab_fines"   class="money-tab" onclick="switchMoneyTab('fines')">💸 벌금</button>
+    <button id="moneytab_prizes"  class="money-tab" onclick="switchMoneyTab('prizes')">🏆 상금</button>
+    <button id="moneytab_tourney" class="money-tab" onclick="switchMoneyTab('tourney')">🗳️ 대회참가비</button>
+    <button id="moneytab_sponsor" class="money-tab" onclick="switchMoneyTab('sponsor')">🎁 찬조</button>
+  </div>
+  <!-- 회비 패널 -->
+  <div id="moneyPanel_dues">
+    <div id="duesContent"></div>
+  </div>
+  <!-- 벌금 패널 -->
+  <div id="moneyPanel_fines" style="display:none;">
+    <div class="tabs">
+      <button class="tab active" onclick="switchFineTab('by_round',this)">📅 회차별 현황</button>
+      <button class="tab" onclick="switchFineTab('by_player',this)">👤 선수별 누적</button>
+      <button class="tab" onclick="switchFineTab('extra',this)">➕ 추가 벌금</button>
+    </div>
+    <div id="fineContent"></div>
+  </div>
+  <!-- 상금 패널 -->
+  <div id="moneyPanel_prizes" style="display:none;">
+    <div id="prizesContent"></div>
+  </div>
+  <!-- 대회참가비 패널 -->
+  <div id="moneyPanel_tourney" style="display:none;">
+    <div id="tourneyContent"></div>
+  </div>
+  <!-- 찬조 패널 -->
+  <div id="moneyPanel_sponsor" style="display:none;">
+    <div id="sponsorContent"></div>
+  </div>
 </section>
 
-<!-- ⑦-2 대회 참가비 -->
-<section id="tourney" class="section">
-  <div class="page-title">TOURNEY FEE</div>
-  <div class="page-sub">대회 참가비 납부 현황 관리</div>
-  <div id="tourneyContent"></div>
-</section>
+
 
 <!-- 정기전 투표 -->
 <section id="vote" class="section">
-  <div class="page-title">VOTE</div>
-  <div class="page-sub">정기전 참가 투표 · 에버리지 자동 합산</div>
-  <div id="voteContent"></div>
+  <div class="page-title">🗳️ 투표</div>
+  <div class="page-sub">정기전 · 번개 참가 투표</div>
+  <!-- 탭 버튼 -->
+  <div style="display:flex;gap:6px;margin-bottom:20px;">
+    <button id="votetab_regular" class="money-tab active" onclick="switchVoteTab('regular')">🎳 정기전 투표</button>
+    <button id="votetab_banggae" class="money-tab" onclick="switchVoteTab('banggae')">⚡ 번개 투표</button>
+  </div>
+  <div id="votePanel_regular"><div id="voteContent"></div></div>
+  <div id="votePanel_banggae" style="display:none;"><div id="banggaeContent"></div></div>
 </section>
 
 <!-- 팀 편성 -->
@@ -834,19 +862,9 @@
   <div id="teambuilderContent"></div>
 </section>
 
-<!-- 번개 -->
-<section id="banggae" class="section">
-  <div class="page-title">⚡ 번개</div>
-  <div class="page-sub">친목 번개 · 참석 투표 및 팀 편성</div>
-  <div id="banggaeContent"></div>
-</section>
 
-<!-- ⑧ 찬조 내역 -->
-<section id="sponsor" class="section">
-  <div class="page-title">SPONSOR</div>
-  <div class="page-sub">회원 찬조 내역 기록</div>
-  <div id="sponsorContent"></div>
-</section>
+
+
 
 <!-- 회원관리 섹션 -->
 <section id="members" class="section">
@@ -1422,20 +1440,47 @@ function showSection(id, btn) {
   document.getElementById(id).classList.add('active');
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   if(btn) btn.classList.add('active');
-  if(id === 'ranking') renderRanking(currentRankTab || 'avg');
-  if(id === 'rounds') renderRounds();
-  if(id === 'players') renderPlayers();
-  if(id === 'members') renderMemberList();
-  if(id === 'fines') renderFines();
-  if(id === 'prizes') renderPrizes();
-  if(id === 'notice') renderNotice();
-  if(id === 'dues') renderDues();
-  if(id === 'tourney') renderTourney();
-  if(id === 'vote') renderVote();
+  if(id === 'ranking')     renderRanking(currentRankTab || 'avg');
+  if(id === 'rounds')      renderRounds();
+  if(id === 'players')     renderPlayers();
+  if(id === 'members')     renderMemberList();
+  if(id === 'notice')      renderNotice();
+  if(id === 'dues')        switchMoneyTab('dues');
+  if(id === 'vote')        switchVoteTab('regular');
   if(id === 'teambuilder') renderTeamBuilder();
-  if(id === 'banggae') renderBanggae();
-  if(id === 'sponsor') renderSponsor();
 }
+
+// ── 회비·벌금·상금 탭 전환 ──
+let _currentMoneyTab = 'dues';
+function switchMoneyTab(tab) {
+  _currentMoneyTab = tab;
+  ['dues','fines','prizes','tourney','sponsor'].forEach(t => {
+    const btn = document.getElementById('moneytab_' + t);
+    if(btn) btn.classList.toggle('active', t === tab);
+    const panel = document.getElementById('moneyPanel_' + t);
+    if(panel) panel.style.display = t === tab ? '' : 'none';
+  });
+  if(tab==='dues')    renderDues();
+  if(tab==='fines')   renderFines();
+  if(tab==='prizes')  renderPrizes();
+  if(tab==='tourney') renderTourney();
+  if(tab==='sponsor') renderSponsor();
+}
+
+// ── 투표 탭 전환 ──
+let _currentVoteTab = 'regular';
+function switchVoteTab(tab) {
+  _currentVoteTab = tab;
+  ['regular','banggae'].forEach(t => {
+    const btn = document.getElementById('votetab_' + t);
+    if(btn) btn.classList.toggle('active', t === tab);
+    const panel = document.getElementById('votePanel_' + t);
+    if(panel) panel.style.display = t === tab ? '' : 'none';
+  });
+  if(tab==='regular') renderVote();
+  if(tab==='banggae') renderBanggae();
+}
+
 
 function toast(msg, type='success') {
   const t = document.getElementById('toast');
@@ -3013,12 +3058,14 @@ function deletePlayerFromRound(roundId, name) {
 
 function refreshAllViews() {
   refreshAll();
-  if(typeof renderNotice === "function") renderNotice();
-  if(typeof renderBanggae === "function") { const s = document.getElementById('banggae'); if(s && s.classList.contains('active')) renderBanggae(); }
-  if(typeof renderFines === "function") {
-    const s = document.getElementById("fines");
-    if(s && s.classList.contains("active")) renderFines();
-  }
+  const activeSection = document.querySelector('.section.active');
+  if(!activeSection) return;
+  const id = activeSection.id;
+  if(id === 'notice')      renderNotice();
+  if(id === 'dues')        switchMoneyTab(_currentMoneyTab || 'dues');
+  if(id === 'vote')        switchVoteTab(_currentVoteTab || 'regular');
+  if(id === 'teambuilder') renderTeamBuilder();
+  if(id === 'ranking')     renderRanking(currentRankTab || 'avg');
 }
 
 function refreshAll() {
@@ -3171,20 +3218,6 @@ function castBanggaeVote(eventId, name, choice) {
   renderBanggae();
   const labels = { yes:'✅ 참석', no:'❌ 불참' };
   toast(`${name} → ${labels[choice]} 선택 완료!`);
-
-  // 참석 선택 시 팀편성으로 자동이동 + 체크
-  if(choice === 'yes') {
-    setTimeout(() => {
-      const tbBtn = [...document.querySelectorAll('.nav-btn')].find(b => b.textContent.includes('팀 편성'));
-      showSection('teambuilder', tbBtn || null);
-      setTimeout(() => {
-        const chk = document.getElementById(`tb_${name}`);
-        if(chk && !chk.checked) { chk.checked = true; chk.dispatchEvent(new Event('change')); }
-        const lbl = document.getElementById(`tb_label_${name}`);
-        if(lbl) { lbl.style.borderColor = '#22c55e'; lbl.style.background = 'rgba(34,197,94,0.1)'; }
-      }, 100);
-    }, 500);
-  }
 }
 
 function closeBanggae(eventId) {
@@ -3678,28 +3711,6 @@ function castVote(pollId, name, choice) {
   renderVote();
   const labels = { yes:'✅ 참가', no:'❌ 불참', maybe:'🤔 미정' };
   toast(`${name} → ${labels[choice]} 선택 완료!`);
-
-  // 찬성(yes) 선택 시 팀편성으로 이동 + 해당 멤버 자동 체크
-  if(choice === 'yes') {
-    setTimeout(() => {
-      const tbBtn = [...document.querySelectorAll('.nav-btn')]
-        .find(b => b.textContent.includes('팀 편성'));
-      showSection('teambuilder', tbBtn || null);
-      setTimeout(() => {
-        const chk = document.getElementById(`tb_${name}`);
-        if(chk && !chk.checked) {
-          chk.checked = true;
-          chk.dispatchEvent(new Event('change'));
-        }
-        // 체크박스 라벨 하이라이트
-        const lbl = document.getElementById(`tb_label_${name}`);
-        if(lbl) {
-          lbl.style.borderColor = '#22c55e';
-          lbl.style.background = 'rgba(34,197,94,0.1)';
-        }
-      }, 100);
-    }, 500);
-  }
 }
 
 function closePoll(pollId) {

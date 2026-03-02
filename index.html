@@ -521,7 +521,7 @@
   const db = getDatabase(app);
   window._fb = { db, ref, set, get, onValue };
 
-  const KEYS = ['data','finePayments','extraFines','prizes','dues','genders','notices','sponsors'];
+  const KEYS = ['data','finePayments','extraFines','prizes','dues','genders','notices','sponsors','leagues','tourneys','votes'];
 
   function startSync() {
     const statusEl = document.getElementById('fbStatus');
@@ -544,6 +544,9 @@
             genders: 'bowlingApp_genders',
             notices: 'bowlingApp_notices',
             sponsors: 'bowlingApp_sponsors',
+            leagues: 'bowlingApp_leagues',
+            tourneys: 'bowlingApp_tourney',
+            votes: 'bowlingApp_votes',
           }[key];
           if (lsKey) {
             try { localStorage.setItem(lsKey, JSON.stringify(val)); } catch(e) {}
@@ -3095,6 +3098,7 @@ function loadTourneys() {
 }
 function saveTourneys(data) {
   try { localStorage.setItem(TOURNEY_KEY, JSON.stringify(data)); } catch(e) {}
+  window.fbSave && window.fbSave('tourneys', data);
 }
 
 function addTourneyEvent() {
@@ -3378,6 +3382,7 @@ function loadVotes() {
 }
 function saveVotes(data) {
   try { localStorage.setItem(VOTE_KEY, JSON.stringify(data)); } catch(e) {}
+  window.fbSave && window.fbSave('votes', data);
 }
 
 function createVotePoll() {
@@ -3623,6 +3628,7 @@ function loadLeagues() {
 }
 function saveLeagues(d) {
   try { localStorage.setItem(LEAGUE_KEY, JSON.stringify(d)); } catch(e) {}
+  window.fbSave && window.fbSave('leagues', d);
 }
 function getMemberLeague(name) {
   return loadLeagues()[name] || 'A';

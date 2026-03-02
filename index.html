@@ -1,0 +1,3130 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎳 볼링 정기전 관리 v2.0 (버그수정)</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Bebas+Neue&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --bg2: #111827;
+    --bg3: #1a2236;
+    --card: #141e30;
+    --border: #1e2d45;
+    --accent: #f97316;
+    --accent2: #fb923c;
+    --blue: #3b82f6;
+    --green: #22c55e;
+    --red: #ef4444;
+    --yellow: #eab308;
+    --text: #f1f5f9;
+    --text2: #94a3b8;
+    --text3: #64748b;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: 'Noto Sans KR', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(249,115,22,0.12), transparent),
+                radial-gradient(ellipse 60% 40% at 80% 80%, rgba(59,130,246,0.08), transparent);
+    pointer-events: none; z-index: 0;
+  }
+
+  header {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(10,14,26,0.85);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    display: flex; align-items: center; gap: 16px;
+    height: 60px;
+  }
+  .logo {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 26px; letter-spacing: 2px;
+    color: var(--accent);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .logo span { color: var(--text2); font-size: 13px; font-family: 'Noto Sans KR', sans-serif; font-weight: 300; letter-spacing: 0; }
+  nav { display: flex; gap: 4px; margin-left: auto; }
+  .nav-btn {
+    padding: 6px 16px; border-radius: 8px;
+    background: transparent; border: none;
+    color: var(--text2); font-size: 13px; font-weight: 500;
+    cursor: pointer; transition: all .2s;
+    font-family: 'Noto Sans KR', sans-serif;
+  }
+  .nav-btn:hover { color: var(--text); background: var(--bg3); }
+  .nav-btn.active { color: var(--accent); background: rgba(249,115,22,0.12); }
+
+  main { position: relative; z-index: 1; padding: 32px 24px; max-width: 1400px; margin: 0 auto; }
+
+  .section { display: none; }
+  .section.active { display: block; }
+
+  .page-title {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 42px; letter-spacing: 3px;
+    color: var(--text); margin-bottom: 8px;
+    line-height: 1;
+  }
+  .page-sub { color: var(--text3); font-size: 13px; margin-bottom: 32px; }
+
+  .upload-area {
+    border: 2px dashed var(--border);
+    border-radius: 16px;
+    padding: 60px 40px;
+    text-align: center;
+    cursor: pointer;
+    transition: all .3s;
+    background: var(--card);
+    position: relative;
+    overflow: hidden;
+  }
+  .upload-area::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at center, rgba(249,115,22,0.05), transparent 70%);
+    opacity: 0; transition: opacity .3s;
+  }
+  .upload-area:hover, .upload-area.drag { border-color: var(--accent); }
+  .upload-area:hover::before, .upload-area.drag::before { opacity: 1; }
+  .upload-icon { font-size: 52px; margin-bottom: 16px; display: block; }
+  .upload-title { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+  .upload-sub { color: var(--text3); font-size: 13px; }
+  #fileInput { display: none; }
+
+  .date-row {
+    display: flex; gap: 12px; align-items: center; margin-bottom: 24px;
+  }
+  .input-group { display: flex; flex-direction: column; gap: 4px; }
+  .input-group label { font-size: 12px; color: var(--text3); font-weight: 500; }
+  .input-group input, .input-group select {
+    background: var(--bg3); border: 1px solid var(--border);
+    color: var(--text); padding: 8px 14px; border-radius: 8px;
+    font-size: 14px; outline: none; font-family: inherit;
+    transition: border-color .2s;
+  }
+  .input-group input:focus, .input-group select:focus { border-color: var(--accent); }
+
+  .btn {
+    padding: 10px 20px; border-radius: 8px; border: none;
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    transition: all .2s; font-family: inherit;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-primary:hover { background: var(--accent2); transform: translateY(-1px); }
+  .btn-secondary { background: var(--bg3); color: var(--text); border: 1px solid var(--border); }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-green { background: var(--green); color: white; }
+  .btn-green:hover { filter: brightness(1.1); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  .loading {
+    display: none; align-items: center; gap: 12px;
+    padding: 20px; background: var(--bg3);
+    border-radius: 12px; margin-bottom: 20px;
+    border: 1px solid var(--border);
+  }
+  .loading.show { display: flex; }
+  .spinner {
+    width: 20px; height: 20px; border-radius: 50%;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    animation: spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  #previewImg {
+    max-width: 100%; max-height: 300px;
+    border-radius: 12px; border: 1px solid var(--border);
+    display: none; margin-bottom: 16px;
+  }
+
+  .score-editor {
+    display: none;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    margin-bottom: 20px;
+  }
+  .score-editor.show { display: block; }
+  .editor-header {
+    padding: 16px 20px;
+    background: var(--bg3);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 12px;
+  }
+  .editor-title { font-weight: 700; font-size: 15px; }
+  .editor-badge {
+    font-size: 11px; padding: 2px 8px; border-radius: 20px;
+    background: rgba(249,115,22,0.15); color: var(--accent);
+    border: 1px solid rgba(249,115,22,0.3);
+  }
+  table { width: 100%; border-collapse: collapse; }
+  th {
+    padding: 10px 12px; font-size: 11px; font-weight: 600;
+    color: var(--text3); text-align: center;
+    background: var(--bg3); border-bottom: 1px solid var(--border);
+    text-transform: uppercase; letter-spacing: .5px;
+  }
+  td {
+    padding: 8px 12px; font-size: 13px; text-align: center;
+    border-bottom: 1px solid rgba(30,45,69,0.5);
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(249,115,22,0.04); }
+  td input {
+    width: 60px; background: var(--bg3); border: 1px solid var(--border);
+    color: var(--text); padding: 4px 6px; border-radius: 6px;
+    text-align: center; font-size: 13px; outline: none;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  td input:focus { border-color: var(--accent); }
+  .td-name { text-align: left; font-weight: 600; }
+  .td-total { font-family: 'JetBrains Mono', monospace; font-weight: 700; color: var(--blue); }
+  .td-avg { font-family: 'JetBrains Mono', monospace; color: var(--text2); }
+  .fine-badge { color: var(--red); font-size: 11px; font-weight: 700; }
+
+  .stats-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px; margin-bottom: 32px;
+  }
+  .stat-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 20px;
+    transition: border-color .2s;
+  }
+  .stat-card:hover { border-color: rgba(249,115,22,0.3); }
+  .stat-name { font-weight: 700; font-size: 15px; margin-bottom: 12px; }
+  .stat-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 6px 0; border-bottom: 1px solid rgba(30,45,69,0.5);
+    font-size: 13px;
+  }
+  .stat-row:last-child { border-bottom: none; }
+  .stat-label { color: var(--text3); }
+  .stat-val { font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+  .stat-val.accent { color: var(--accent); }
+  .stat-val.blue { color: var(--blue); }
+  .stat-val.green { color: var(--green); }
+  .stat-val.red { color: var(--red); }
+
+  .rank-table-wrap {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; overflow: hidden;
+  }
+  .rank-header {
+    padding: 20px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 12px;
+  }
+  .rank-title { font-weight: 700; font-size: 16px; }
+  .rank-badge { margin-left: auto; }
+
+  .rank-row { display: flex; align-items: center; padding: 14px 20px; border-bottom: 1px solid rgba(30,45,69,0.4); transition: background .15s; }
+  .rank-row:last-child { border-bottom: none; }
+  .rank-row:hover { background: rgba(249,115,22,0.03); }
+  .rank-num {
+    width: 36px; height: 36px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 14px; margin-right: 14px; flex-shrink: 0;
+  }
+  .rank-1 { background: rgba(234,179,8,0.15); color: #eab308; border: 1px solid rgba(234,179,8,0.3); }
+  .rank-2 { background: rgba(148,163,184,0.15); color: #94a3b8; border: 1px solid rgba(148,163,184,0.3); }
+  .rank-3 { background: rgba(180,83,9,0.15); color: #b45309; border: 1px solid rgba(180,83,9,0.3); }
+  .rank-other { background: var(--bg3); color: var(--text3); border: 1px solid var(--border); }
+  .rank-name { font-weight: 700; font-size: 15px; flex: 1; }
+  .rank-attend { color: var(--text3); font-size: 12px; margin-left: 8px; }
+  .rank-stats { display: flex; gap: 20px; align-items: center; }
+  .rank-stat { text-align: center; }
+  .rank-stat-val { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 16px; }
+  .rank-stat-label { font-size: 10px; color: var(--text3); margin-top: 2px; }
+  .handi-chip {
+    font-size: 11px; padding: 2px 8px; border-radius: 20px;
+    background: rgba(59,130,246,0.15); color: var(--blue);
+    border: 1px solid rgba(59,130,246,0.3);
+  }
+
+  .rounds-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 20px;
+  }
+  .round-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; overflow: hidden;
+  }
+  .round-card-header {
+    padding: 16px 20px;
+    background: linear-gradient(135deg, var(--bg3), var(--card));
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .round-date { font-weight: 700; font-size: 15px; }
+  .round-count { font-size: 12px; color: var(--text3); }
+  .round-entry {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 20px; border-bottom: 1px solid rgba(30,45,69,0.4);
+    font-size: 13px;
+  }
+  .round-entry:last-child { border-bottom: none; }
+  .round-entry-name { font-weight: 600; }
+  .round-entry-scores { font-family: 'JetBrains Mono', monospace; color: var(--text2); font-size: 12px; }
+  .round-entry-total { font-family: 'JetBrains Mono', monospace; font-weight: 700; color: var(--blue); }
+
+  .toast {
+    position: fixed; bottom: 24px; right: 24px;
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px 20px;
+    font-size: 14px; font-weight: 500;
+    transform: translateY(100px); opacity: 0;
+    transition: all .3s; z-index: 9999;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast.success { border-color: var(--green); }
+  .toast.error { border-color: var(--red); }
+
+  .tabs { display: flex; gap: 4px; margin-bottom: 24px; background: var(--bg3); padding: 4px; border-radius: 10px; width: fit-content; flex-wrap: wrap; }
+  .tab { padding: 8px 16px; border-radius: 8px; border: none; background: transparent; color: var(--text3); font-size: 13px; font-weight: 500; cursor: pointer; transition: all .2s; font-family: inherit; }
+  .tab.active { background: var(--card); color: var(--text); box-shadow: 0 1px 4px rgba(0,0,0,0.3); }
+
+  .empty { text-align: center; padding: 60px 20px; color: var(--text3); }
+  .empty-icon { font-size: 48px; margin-bottom: 16px; }
+  .empty-text { font-size: 15px; margin-bottom: 8px; color: var(--text2); }
+  .empty-sub { font-size: 13px; }
+
+  .toolbar { display: flex; gap: 10px; margin-bottom: 20px; align-items: center; flex-wrap: wrap; }
+  .toolbar-right { margin-left: auto; display: flex; gap: 8px; }
+
+  /* 벌금 관련 스타일 */
+  .fine-summary-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 16px; margin-bottom: 32px;
+  }
+  .fine-summary-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 20px; text-align: center;
+    transition: border-color .2s;
+  }
+  .fine-summary-card:hover { border-color: rgba(249,115,22,0.3); }
+  .fine-summary-icon { font-size: 28px; margin-bottom: 8px; }
+  .fine-summary-val {
+    font-family: 'JetBrains Mono', monospace; font-weight: 700;
+    font-size: 24px; margin-bottom: 4px;
+  }
+  .fine-summary-label { font-size: 12px; color: var(--text3); }
+
+  .fine-round-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; overflow: hidden; margin-bottom: 20px;
+  }
+  .fine-round-header {
+    padding: 16px 20px;
+    background: linear-gradient(135deg, var(--bg3), var(--card));
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .fine-row {
+    display: flex; align-items: center; gap: 14px;
+    padding: 13px 20px; border-bottom: 1px solid rgba(30,45,69,0.4);
+    transition: background .15s;
+  }
+  .fine-row:last-child { border-bottom: none; }
+  .fine-row:hover { background: rgba(249,115,22,0.03); }
+  .fine-row.paid { background: rgba(34,197,94,0.04); }
+
+  /* 체크박스 커스텀 */
+  .fine-check-wrap {
+    position: relative; width: 22px; height: 22px; flex-shrink: 0;
+  }
+  .fine-check-wrap input[type=checkbox] {
+    position: absolute; opacity: 0; width: 0; height: 0;
+  }
+  .fine-check-box {
+    position: absolute; inset: 0;
+    border: 2px solid var(--border);
+    border-radius: 6px; background: var(--bg3);
+    cursor: pointer; transition: all .2s;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .fine-check-wrap input:checked + .fine-check-box {
+    background: var(--green); border-color: var(--green);
+  }
+  .fine-check-wrap input:checked + .fine-check-box::after {
+    content: '✓'; color: white; font-size: 13px; font-weight: 700;
+  }
+  .fine-check-box:hover { border-color: var(--green); }
+
+  .fine-name { font-weight: 700; font-size: 14px; flex: 1; }
+  .fine-detail { font-size: 12px; color: var(--text3); margin-top: 2px; }
+  .fine-amount {
+    font-family: 'JetBrains Mono', monospace; font-weight: 700;
+    font-size: 15px; color: var(--red);
+  }
+  .fine-paid-badge {
+    font-size: 11px; padding: 3px 10px; border-radius: 20px;
+    background: rgba(34,197,94,0.12); color: var(--green);
+    border: 1px solid rgba(34,197,94,0.3); white-space: nowrap;
+  }
+  .fine-unpaid-badge {
+    font-size: 11px; padding: 3px 10px; border-radius: 20px;
+    background: rgba(239,68,68,0.12); color: var(--red);
+    border: 1px solid rgba(239,68,68,0.3); white-space: nowrap;
+  }
+
+  /* 누적 벌금 테이블 */
+  .fine-player-card {
+    display: flex; align-items: center; gap: 16px;
+    padding: 14px 20px; border-bottom: 1px solid rgba(30,45,69,0.4);
+    transition: background .15s;
+  }
+  .fine-player-card:last-child { border-bottom: none; }
+  .fine-player-card:hover { background: rgba(249,115,22,0.03); }
+  .fine-bar-wrap { flex: 1; max-width: 200px; }
+  .fine-bar-bg { background: var(--bg3); border-radius: 4px; height: 6px; overflow: hidden; }
+  .fine-bar-fill { height: 100%; border-radius: 4px; transition: width .5s; }
+  .fine-bar-paid { background: var(--green); }
+  .fine-bar-unpaid { background: var(--red); }
+
+  @media (max-width: 768px) {
+    header { padding: 0 12px; height: auto; min-height: 60px; flex-wrap: wrap; gap: 8px; padding: 8px 12px; }
+    nav { flex-wrap: wrap; gap: 2px; width: 100%; }
+    .nav-btn { font-size: 11px; padding: 5px 8px; }
+    main { padding: 16px 12px; }
+    .page-title { font-size: 28px; }
+    .rank-row { flex-wrap: wrap; gap: 10px; padding: 12px 14px; }
+    .rank-stats { gap: 10px; flex-wrap: wrap; }
+    .rank-stat-val { font-size: 14px; }
+    .round-entry { flex-wrap: wrap; gap: 6px; padding: 10px 14px; }
+    .round-entry-scores { font-size: 11px; }
+    .stats-grid { grid-template-columns: 1fr; }
+    .rounds-grid { grid-template-columns: 1fr; }
+    .date-row { flex-wrap: wrap; }
+    .member-row { flex-wrap: wrap; gap: 8px; }
+    .logo span { display: none; }
+    table { font-size: 11px; }
+    th, td { padding: 6px 8px; }
+    .modal { width: calc(100vw - 40px); padding: 24px; }
+    .fine-row { flex-wrap: wrap; gap: 8px; padding: 12px 14px; }
+    .fine-summary-grid { grid-template-columns: repeat(2,1fr); }
+  }
+
+  .modal-overlay {
+    position: fixed; inset: 0; z-index: 1000;
+    background: rgba(0,0,0,0.7); backdrop-filter: blur(6px);
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none; transition: opacity .25s;
+  }
+  .modal-overlay.show { opacity: 1; pointer-events: all; }
+  .modal {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 20px; padding: 36px; width: 360px;
+    transform: translateY(20px) scale(0.97); transition: transform .25s;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+  }
+  .modal-overlay.show .modal { transform: none; }
+  .modal-icon { font-size: 40px; text-align: center; margin-bottom: 12px; }
+  .modal-title { font-size: 18px; font-weight: 700; text-align: center; margin-bottom: 6px; }
+  .modal-sub { font-size: 13px; color: var(--text3); text-align: center; margin-bottom: 24px; }
+  .modal-input {
+    width: 100%; background: var(--bg3); border: 1px solid var(--border);
+    color: var(--text); padding: 12px 16px; border-radius: 10px;
+    font-size: 16px; outline: none; font-family: 'JetBrains Mono', monospace;
+    text-align: center; letter-spacing: 4px; margin-bottom: 16px;
+    transition: border-color .2s;
+  }
+  .modal-input:focus { border-color: var(--accent); }
+  .modal-input.error { border-color: var(--red); animation: shake .3s; }
+  @keyframes shake {
+    0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)}
+  }
+  .modal-btns { display: flex; gap: 10px; }
+  .modal-btns .btn { flex: 1; justify-content: center; }
+
+  .data-menu-btn {
+    display: block; width: 100%; text-align: left;
+    background: transparent; border: none; color: var(--text);
+    padding: 9px 12px; border-radius: 8px;
+    font-size: 13px; font-weight: 500; cursor: pointer;
+    transition: background .15s; font-family: inherit;
+  }
+  .data-menu-btn:hover { background: var(--bg3); }
+
+  .admin-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; padding: 4px 12px; border-radius: 20px;
+    background: rgba(249,115,22,0.12); color: var(--accent);
+    border: 1px solid rgba(249,115,22,0.3); cursor: pointer;
+    transition: all .2s;
+  }
+  .admin-badge:hover { background: rgba(249,115,22,0.2); }
+  .admin-badge.active { background: rgba(34,197,94,0.12); color: var(--green); border-color: rgba(34,197,94,0.3); }
+  .admin-only { display: none; }
+  .admin-mode .admin-only { display: inline-flex; }
+  .admin-mode .admin-only-block { display: block; }
+  .admin-only-block { display: none; }
+
+  .member-row {
+    display:flex; align-items:center; padding:12px 20px;
+    border-bottom:1px solid rgba(30,45,69,0.4); gap:12px;
+    transition: background .15s;
+  }
+  .member-row:last-child { border-bottom:none; }
+  .member-row:hover { background:rgba(249,115,22,0.03); }
+  .member-num { width:28px; font-size:12px; color:var(--text3); flex-shrink:0; text-align:right; }
+  .member-name-cell { flex:1; font-weight:700; font-size:14px; }
+  .member-avg-input {
+    width:80px; background:var(--bg3); border:1px solid var(--border);
+    color:var(--text); padding:5px 10px; border-radius:8px;
+    font-size:13px; text-align:center; outline:none;
+    font-family:'JetBrains Mono',monospace; transition:border-color .2s;
+  }
+  .member-avg-input:focus { border-color:var(--accent); }
+  .member-save-btn {
+    background:rgba(34,197,94,0.12); border:1px solid rgba(34,197,94,0.3);
+    color:var(--green); border-radius:8px; padding:5px 12px;
+    font-size:12px; cursor:pointer; transition:all .2s; white-space:nowrap;
+    font-family:inherit;
+  }
+  .member-save-btn:hover { background:rgba(34,197,94,0.25); }
+  .member-del-btn {
+    background:none; border:1px solid rgba(239,68,68,0.3);
+    color:var(--red); border-radius:8px; padding:5px 12px;
+    font-size:12px; cursor:pointer; transition:all .2s; white-space:nowrap;
+    font-family:inherit;
+  }
+  .member-del-btn:hover { background:rgba(239,68,68,0.15); }
+</style>
+
+<!-- ══ Firebase SDK ══ -->
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+  import { getDatabase, ref, set, get, onValue, update }
+    from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
+  import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged }
+    from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+
+  // ★ 아래 설정값을 Firebase 콘솔에서 복사해서 붙여넣으세요 ★
+  const firebaseConfig = {
+    apiKey:            "AIzaSyA6-nchOWQ7MEBThnGTnZjko-APerPvWmk",
+    authDomain:        "meet-ball-3191d.firebaseapp.com",
+    databaseURL:       "https://meet-ball-3191d-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId:         "meet-ball-3191d",
+    storageBucket:     "meet-ball-3191d.firebasestorage.app",
+    messagingSenderId: "969779870898",
+    appId:             "1:969779870898:web:3a1a65583ea99a94569dab"
+  };
+
+  const app  = initializeApp(firebaseConfig);
+  const db   = getDatabase(app);
+  const auth = getAuth(app);
+
+  // 전역으로 노출 (기존 코드에서 호출)
+  window._fb = { db, ref, set, get, onValue, update, auth, signInWithEmailAndPassword, signOut };
+  window._fbReady = true;
+
+  // Firebase Auth 상태 감지
+  onAuthStateChanged(auth, user => {
+    window._fbUser = user || null;
+    const statusEl = document.getElementById('fbStatus');
+    if(user) {
+      if(statusEl) {
+        statusEl.textContent = '🟢 실시간 연결 (관리자)';
+        statusEl.style.color = 'var(--green)';
+      }
+    }
+  });
+
+  // DB 키 목록
+  const KEYS = [
+    'data', 'finePayments', 'extraFines', 'prizes',
+    'dues', 'genders', 'notices', 'sponsors'
+  ];
+
+  // 실시간 리스너 — 다른 사용자가 저장하면 즉시 화면 갱신
+  function startRealtimeSync() {
+    KEYS.forEach(key => {
+      onValue(ref(db, key), snapshot => {
+        const val = snapshot.val();
+        if(val !== null) {
+          // localStorage에도 캐시 (오프라인 대비)
+          try { localStorage.setItem('bowlingApp_' + (key==='data'?'data':key), JSON.stringify(val)); } catch(e){}
+          window['_fb_cache_' + key] = val;
+        }
+        // 현재 활성 화면 갱신
+        if(typeof window.refreshAllViews === 'function') window.refreshAllViews();
+      });
+    });
+  }
+
+  // 앱이 준비되면 실시간 싱크 시작
+  window.addEventListener('load', () => {
+    setTimeout(startRealtimeSync, 500);
+  });
+</script>
+</head>
+<body>
+
+<header>
+  <div class="logo">🎳 BOWLING <span>정기전 관리</span></div>
+  <nav>
+    <button class="nav-btn" onclick="showSection('notice',this)">📢 공지</button>
+    <button class="nav-btn active" onclick="showSection('upload',this)">📷 점수입력</button>
+    <button class="nav-btn" onclick="showSection('ranking',this)">🏆 순위</button>
+    <button class="nav-btn" onclick="showSection('rounds',this)">📅 회차기록</button>
+    <button class="nav-btn" onclick="showSection('players',this)">👥 선수현황</button>
+    <button class="nav-btn" onclick="showSection('fines',this)">💸 벌금관리</button>
+    <button class="nav-btn" onclick="showSection('prizes',this)">🏆 상금관리</button>
+    <button class="nav-btn" onclick="showSection('dues',this)">💳 회비관리</button>
+    <button class="nav-btn" onclick="showSection('sponsor',this)">🎁 찬조</button>
+    <button class="nav-btn" id="membersNavBtn" onclick="showSection('members',this)" style="display:none;">⚙️ 회원관리</button>
+    <button class="btn btn-secondary" id="dataMenuBtn" onclick="toggleDataMenu()"
+      style="display:none;font-size:12px;padding:5px 12px;gap:4px;">💾 저장</button>
+    <div id="dataMenu" style="display:none;position:fixed;top:64px;right:16px;z-index:500;
+      background:var(--card);border:1px solid var(--border);border-radius:14px;padding:8px;
+      box-shadow:0 16px 48px rgba(0,0,0,0.6);min-width:220px;">
+      <div style="font-size:11px;color:var(--text3);padding:6px 10px 8px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;">데이터 관리</div>
+      <button onclick="exportHTMLSnapshot()" class="data-menu-btn">🌐 최신 데이터 포함 HTML 저장</button>
+      <div style="font-size:11px;color:var(--text3);padding:4px 12px 6px;line-height:1.5;">
+        현재 모든 데이터(점수·벌금·회비·상금·공지)가<br>포함된 HTML 파일을 다운로드합니다.<br>이 파일을 배포하면 바로 사용 가능합니다.
+      </div>
+    </div>
+    <div style="width:1px;background:var(--border);margin:0 8px;"></div>
+    <div id="fbStatus" style="font-size:11px;color:var(--text3);padding:4px 8px;border-radius:8px;background:var(--bg3);border:1px solid var(--border);white-space:nowrap;">⚪ 연결 중...</div>
+  <div id="adminBadge" class="admin-badge" onclick="toggleAdmin()">🔒 관리자</div>
+  </nav>
+</header>
+
+<main>
+
+<!-- ⓪ 공지사항 -->
+<section id="notice" class="section">
+  <div class="page-title">NOTICE</div>
+  <div class="page-sub">클럽 공지사항 · 이미지 및 텍스트 게시</div>
+  <div id="noticeContent"></div>
+</section>
+
+<!-- ① 점수 입력 -->
+<section id="upload" class="section active">
+  <div class="page-title">SCORE INPUT</div>
+  <div class="page-sub">점수표 이미지를 업로드하면 AI가 자동으로 점수를 인식합니다</div>
+  <div id="uploadLocked" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 20px;color:var(--text3);">
+    <div style="font-size:52px;margin-bottom:16px;">🔒</div>
+    <div style="font-size:16px;font-weight:600;color:var(--text2);margin-bottom:8px;">관리자 전용 기능입니다</div>
+    <div style="font-size:13px;margin-bottom:24px;">오른쪽 상단 관리자 버튼을 눌러 로그인하세요</div>
+    <button class="btn btn-secondary" onclick="toggleAdmin()">🔑 관리자 로그인</button>
+  </div>
+  <div id="uploadContent" style="display:none;">
+
+  <div class="date-row">
+    <div class="input-group">
+      <label>날짜</label>
+      <input type="date" id="matchDate">
+    </div>
+    <div class="input-group">
+      <label>회차</label>
+      <select id="matchRound">
+        <option>1월 1회차</option>
+        <option>1월 2회차</option>
+        <option>2월 1회차</option>
+        <option>2월 2회차</option>
+        <option>3월 1회차</option>
+        <option>3월 2회차</option>
+        <option>4월 1회차</option>
+        <option>4월 2회차</option>
+        <option>5월 1회차</option>
+        <option>5월 2회차</option>
+        <option>6월 1회차</option>
+        <option>6월 2회차</option>
+        <option>7월 1회차</option>
+        <option>7월 2회차</option>
+        <option>8월 1회차</option>
+        <option>8월 2회차</option>
+        <option>9월 1회차</option>
+        <option>9월 2회차</option>
+        <option>10월 1회차</option>
+        <option>10월 2회차</option>
+        <option>11월 1회차</option>
+        <option>11월 2회차</option>
+        <option>12월 1회차</option>
+        <option>12월 2회차</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+    <input type="file" id="fileInput" accept="image/*">
+    <span class="upload-icon">📸</span>
+    <div class="upload-title">점수표 이미지를 업로드하세요</div>
+    <div class="upload-sub">클릭하거나 이미지를 여기로 드래그하세요 · JPG, PNG 지원</div>
+  </div>
+
+  <img id="previewImg" alt="미리보기">
+
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    <div>
+      <div style="font-weight:600;font-size:14px;">AI가 점수표를 분석하는 중...</div>
+      <div style="font-size:12px;color:var(--text3);margin-top:2px;">잠시만 기다려주세요</div>
+    </div>
+  </div>
+
+  <div class="score-editor" id="scoreEditor">
+    <div class="editor-header">
+      <div class="editor-title">인식된 점수 확인 및 수정</div>
+      <div class="editor-badge">✨ AI 자동인식</div>
+      <div style="margin-left:auto;display:flex;gap:8px;">
+        <button class="btn btn-secondary" onclick="clearEditor()">✕ 취소</button>
+        <button class="btn btn-primary" onclick="saveScores()">💾 저장하기</button>
+      </div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>선수명</th>
+          <th>1G</th>
+          <th>2G</th>
+          <th>3G</th>
+          <th>총점</th>
+          <th>에버리지</th>
+          <th>기준에버</th>
+          <th>벌금</th>
+        </tr>
+      </thead>
+      <tbody id="scoreTableBody"></tbody>
+    </table>
+  </div>
+
+  <div class="toolbar" id="manualAddBar" style="margin-top:16px;">
+    <button class="btn btn-secondary" onclick="addManualRow()">+ 수동으로 점수 추가</button>
+  </div>
+  </div>
+</section>
+
+<!-- ② 순위 -->
+<section id="ranking" class="section">
+  <div class="page-title">RANKING</div>
+  <div class="page-sub">누적 에버리지 기준 순위 · 핸디 자동 계산</div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchRankTab('avg',this)">노핸디 순위</button>
+    <button class="tab" onclick="switchRankTab('handi_applied',this)">핸디적용 순위</button>
+    <button class="tab" onclick="switchRankTab('total',this)">총점 순위</button>
+    <button class="tab" onclick="switchRankTab('handi',this)">핸디 현황</button>
+    <button class="tab" onclick="switchRankTab('handi_history',this)">핸디 변동이력</button>
+  </div>
+
+  <div class="rank-table-wrap">
+    <div class="rank-header">
+      <div class="rank-title" id="rankTitle">누적 에버리지 순위</div>
+      <div class="rank-badge">
+        <button class="btn btn-secondary" style="font-size:12px;padding:6px 12px;" onclick="exportExcel()">📥 엑셀 다운로드</button>
+      </div>
+    </div>
+    <div id="rankList"></div>
+  </div>
+</section>
+
+<!-- ③ 회차 기록 -->
+<section id="rounds" class="section">
+  <div class="page-title">ROUNDS</div>
+  <div class="page-sub">회차별 점수 기록</div>
+  <div id="roundsGrid" class="rounds-grid"></div>
+</section>
+
+<!-- ④ 선수 현황 -->
+<section id="players" class="section">
+  <div class="page-title">PLAYERS</div>
+  <div class="page-sub">선수별 누적 통계 · 에버리지 기반 핸디 자동 갱신</div>
+
+  <div id="memberAdminBar" style="display:none;margin-bottom:24px;">
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;">
+      <div style="font-weight:700;font-size:14px;margin-bottom:16px;">➕ 회원 추가</div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+        <div class="input-group">
+          <label>이름</label>
+          <input type="text" id="newMemberName" placeholder="홍길동" style="width:120px;">
+        </div>
+        <div class="input-group">
+          <label>기준 에버리지</label>
+          <input type="number" id="newMemberAvg" placeholder="180" min="0" max="300" style="width:110px;">
+        </div>
+        <button class="btn btn-primary" onclick="addMember()">➕ 추가</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="playersGrid" class="stats-grid"></div>
+</section>
+
+<!-- ⑤ 벌금 관리 (신규) -->
+<section id="fines" class="section">
+  <div class="page-title">FINE MGMT</div>
+  <div class="page-sub">회차별 벌금 납부 현황 · 체크박스로 납부 확인</div>
+
+  <!-- 탭 -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchFineTab('by_round',this)">📅 회차별 현황</button>
+    <button class="tab" onclick="switchFineTab('by_player',this)">👤 선수별 누적</button>
+    <button class="tab" onclick="switchFineTab('extra',this)">➕ 추가 벌금</button>
+  </div>
+
+  <div id="fineContent"></div>
+</section>
+
+<!-- ⑥ 상금 관리 -->
+<section id="prizes" class="section">
+  <div class="page-title">PRIZE MGMT</div>
+  <div class="page-sub">상금 지급 내역 관리 · 관리자가 직접 금액 입력</div>
+  <div id="prizesContent"></div>
+</section>
+
+<!-- ⑦ 회비 관리 -->
+<section id="dues" class="section">
+  <div class="page-title">DUES MGMT</div>
+  <div class="page-sub">월 회비 3만원 · 납부 현황 관리</div>
+  <div id="duesContent"></div>
+</section>
+
+<!-- ⑧ 찬조 내역 -->
+<section id="sponsor" class="section">
+  <div class="page-title">SPONSOR</div>
+  <div class="page-sub">회원 찬조 내역 기록</div>
+  <div id="sponsorContent"></div>
+</section>
+
+<!-- 회원관리 섹션 -->
+<section id="members" class="section">
+  <div class="page-title">MEMBER MGMT</div>
+  <div class="page-sub">회원 추가 · 삭제 · 기준 에버리지 수정 (관리자 전용)</div>
+
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;margin-bottom:24px;">
+    <div style="font-weight:700;font-size:15px;margin-bottom:16px;display:flex;align-items:center;gap:8px;">
+      ➕ <span>새 회원 추가</span>
+    </div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+      <div class="input-group">
+        <label>이름 *</label>
+        <input type="text" id="newMemberName2" placeholder="홍길동" style="width:130px;"
+          onkeydown="if(event.key==='Enter')addMember2()">
+      </div>
+      <div class="input-group">
+        <label>기준 에버리지</label>
+        <input type="number" id="newMemberAvg2" placeholder="180" min="0" max="300" style="width:120px;"
+          onkeydown="if(event.key==='Enter')addMember2()">
+      </div>
+      <div class="input-group">
+        <label>성별</label>
+        <select id="newMemberGender2" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:14px;outline:none;font-family:inherit;">
+          <option value="M">♂ 남자</option>
+          <option value="F">♀ 여자</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" onclick="addMember2()">➕ 추가하기</button>
+    </div>
+  </div>
+
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden;">
+    <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+      <div style="font-weight:700;font-size:15px;">📋 회원 목록</div>
+      <div id="memberCount" style="font-size:13px;color:var(--text3);"></div>
+    </div>
+    <div id="memberListTable"></div>
+  </div>
+</section>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/*
+ * ════════════════════════════════════════════════════════════
+ *  🎳 볼링 정기전 관리 앱 v2.0 - 버그 수정 버전
+ * ════════════════════════════════════════════════════════════
+ *  수정 내역:
+ *  [FIX1] initDataIfEmpty: 기준에버 강제 덮어쓰기 버그 수정
+ *         → 관리자가 저장한 기준에버가 새로고침 후에도 유지됨
+ *  [FIX2] getRoundAvgAndHandi: 기준에버 우선순위 수정
+ *         → BASE_PLAYERS 대신 members(관리자 수정값) 우선 적용
+ *  [FIX3] renderScoreEditor: 벌금 미리보기에 200 상한선 통일
+ *         → checkFine() 함수로 통일하여 저장 후 결과와 일치
+ *  [FIX4] updateRow: 벌금 미리보기 동일하게 checkFine() 통일
+ *  [FIX5] getPlayerStats: avg 소수점 정밀도 2자리로 향상
+ *         → 경계값 근처 벌금 판정 오류 방지
+ *  [FIX6] 핸디 현황 탭 초기핸디 기준을 ORIGINAL_PLAYERS로 통일
+ *         → 핸디 변동이력 탭과 동일한 기준
+ *  [FIX7] handi_applied 순위: 각 회차 당시 직전 핸디로 정밀 계산
+ *         → 최종 핸디 소급 적용 → 회차별 직전 핸디 개별 적용
+ *  [FIX8] 회차 선택 드롭다운 12개월로 확장 (3월까지 → 12월까지)
+ *  [FIX9] addMember/addMember2: data.members 초기화 로직 통일
+ * ════════════════════════════════════════════════════════════
+ */
+
+// ── 관리자 인증 ───────────────────────────────────────────
+const ADMIN_PW = '6950';
+let isAdmin = false;
+
+function toggleAdmin() {
+  if(isAdmin) {
+    document.getElementById('logoutModal').classList.add('show');
+  } else {
+    document.getElementById('adminModal').classList.add('show');
+    setTimeout(() => document.getElementById('adminPwInput').focus(), 100);
+  }
+}
+
+function checkAdminPw() {
+  const pw = document.getElementById('adminPwInput').value;
+  const input = document.getElementById('adminPwInput');
+  const err = document.getElementById('adminPwError');
+  if(pw === ADMIN_PW) {
+    isAdmin = true;
+    document.body.classList.add('admin-mode');
+    document.getElementById('adminBadge').classList.add('active');
+    document.getElementById('adminBadge').innerHTML = '🔓 관리자';
+    document.getElementById('adminModal').classList.remove('show');
+    document.getElementById('adminPwInput').value = '';
+    err.textContent = '';
+    document.getElementById('uploadLocked').style.display = 'none';
+    document.getElementById('uploadContent').style.display = 'block';
+    document.getElementById('membersNavBtn').style.display = 'inline-flex';
+    document.getElementById('dataMenuBtn').style.display = 'inline-flex';
+    // Firebase 이메일 인증 (쓰기 권한 획득)
+    if(window._fb) {
+      window._fb.signInWithEmailAndPassword(window._fb.auth, 'admin@meetball.com', 'bowling' + pw)
+        .then(() => toast('관리자 모드 활성화 ✓ (실시간 저장 가능)', 'success'))
+        .catch(e => {
+          // 첫 실행 시 계정이 없을 수 있음 — 로컬 모드로만 동작
+          console.warn('Firebase 인증 실패, 로컬 관리자 모드:', e.code);
+          toast('관리자 모드 활성화 ✓ (Firebase 인증 필요 - 아래 가이드 참고)', 'success');
+        });
+    } else {
+      toast('관리자 모드 활성화 ✓', 'success');
+    }
+    refreshAll();
+  } else {
+    input.classList.add('error');
+    err.textContent = '비밀번호가 올바르지 않습니다';
+    setTimeout(() => input.classList.remove('error'), 400);
+    input.value = '';
+  }
+}
+
+function closeAdminModal() {
+  document.getElementById('adminModal').classList.remove('show');
+  document.getElementById('adminPwInput').value = '';
+  document.getElementById('adminPwError').textContent = '';
+}
+
+function closeLogoutModal() {
+  document.getElementById('logoutModal').classList.remove('show');
+}
+
+function doLogout() {
+  isAdmin = false;
+  if(window._fb && window._fb.auth) {
+    window._fb.signOut(window._fb.auth).catch(()=>{});
+  }
+  document.body.classList.remove('admin-mode');
+  document.getElementById('adminBadge').classList.remove('active');
+  document.getElementById('adminBadge').innerHTML = '🔒 관리자';
+  document.getElementById('logoutModal').classList.remove('show');
+  document.getElementById('membersNavBtn').style.display = 'none';
+  document.getElementById('dataMenuBtn').style.display = 'none';
+  document.getElementById('dataMenu').style.display = 'none';
+  document.getElementById('uploadLocked').style.display = 'flex';
+  document.getElementById('uploadContent').style.display = 'none';
+  if(document.getElementById('members').classList.contains('active')) {
+    document.getElementById('members').classList.remove('active');
+    document.getElementById('ranking').classList.add('active');
+  }
+  toast('로그아웃 완료');
+  refreshAll();
+}
+
+
+// ── 선수 기준 데이터 ──────────────────────────────────────
+// 여자 회원 목록 (벌금 기준에버 상한 190 적용)
+const FEMALE_PLAYERS = new Set(['윤미라','이시은','이윤경','장은선']);
+
+const BASE_PLAYERS = {
+  '권우섭':192,'김동현':174,'김상윤':195,'김용태':211,'김주영':231,
+  '박만수':184,'박성준':159,'박종성':150,'양해성':191,'오욱현':209,
+  '오일주':181,'윤미라':158,'윤연균':184,'이구연':102,'이시은':130,
+  '이윤경':157,'이지윤':199,'장경훈':121,'장민상':174,'장은선':139,
+  '장훈석':206,'정현수':190,'조용상':142,'조정행':182,
+  '이재필':222,'김기범':183,
+};
+
+
+// ── 정기전 시작 전 원래 에버 (핸디 변동이력 초기핸디 기준 = 1월 8일 1회차 직전 에버) ──────────
+const ORIGINAL_PLAYERS = {
+  '권우섭':192,'김동현':174,'김상윤':195,'김용태':211,'김주영':231,
+  '박만수':184,'박성준':159,'박종성':150,'양해성':191,'오욱현':209,
+  '오일주':181,'윤미라':158,'윤연균':184,'이구연':102,'이시은':130,
+  '이윤경':157,'이지윤':199,'장경훈':121,'장민상':174,'장은선':139,
+  '장훈석':206,'정현수':190,'조용상':142,'조정행':182,
+  '이재필':222,'김기범':183,
+};
+// ── 저장소 ──────────────────────────────────────────────
+const STORAGE_KEY = 'bowlingApp_data';
+const FINE_PAYMENT_KEY = 'bowlingApp_finePayments';
+const EXTRA_FINES_KEY = 'bowlingApp_extraFines';   // 추가 벌금 (미투표/클럽티/불참 등)
+const PRIZES_KEY = 'bowlingApp_prizes';             // 상금 내역
+
+// ── Firebase 헬퍼 ─────────────────────────────────────────
+// Firebase가 연결되면 DB에 저장, 아니면 localStorage 폴백
+function fbSet(key, val) {
+  // localStorage 항상 캐시 (오프라인 폴백)
+  try { localStorage.setItem('bowlingApp_' + key, JSON.stringify(val)); } catch(e){}
+  window['_fb_cache_' + key] = val;
+  if(window._fb) {
+    // 인증된 경우에만 Firebase에 쓰기
+    if(window._fbUser) {
+      window._fb.set(window._fb.ref(window._fb.db, key), val)
+        .catch(e => {
+          console.warn('Firebase 저장 실패(로컬에는 저장됨):', e);
+          toast('⚠️ Firebase 저장 실패 - 로컬에만 저장됨', 'error');
+        });
+    } else {
+      console.warn('Firebase: 인증 안 된 상태, 로컬에만 저장');
+    }
+  }
+}
+function fbLoad(key, defaultVal) {
+  // 캐시 우선
+  if(window['_fb_cache_' + key] !== undefined) return window['_fb_cache_' + key];
+  try {
+    const raw = localStorage.getItem('bowlingApp_' + key);
+    if(raw) return JSON.parse(raw);
+  } catch(e) {}
+  return defaultVal;
+}
+
+// 연결 상태 표시
+function updateConnectionStatus(online) {
+  let el = document.getElementById('fbStatus');
+  if(!el) return;
+  el.textContent = online ? '🟢 실시간 연결' : '🔴 오프라인 (로컬 저장 중)';
+  el.style.color  = online ? 'var(--green)' : 'var(--red)';
+}
+
+function loadData() {
+  const cached = window._fb_cache_data;
+  if(cached) return cached;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw) return JSON.parse(raw);
+  } catch(e) {}
+  return { rounds: [], members: JSON.parse(JSON.stringify(BASE_PLAYERS)) };
+}
+
+function saveData(data) {
+  window._bowlingData = data;
+  fbSet('data', data);
+}
+
+// 벌금 납부 정보 (roundId_playerName → true/false)
+function loadFinePayments() { return fbLoad('finePayments', {}); }
+function saveFinePayments(payments) { fbSet('finePayments', payments); }
+
+function toggleFinePayment(roundId, name) {
+  const payments = loadFinePayments();
+  const key = `${roundId}__${name}`;
+  payments[key] = !payments[key];
+  saveFinePayments(payments);
+  // 현재 탭 리렌더
+  renderFineByRound();
+}
+
+function isFinePayment(roundId, name) {
+  const payments = loadFinePayments();
+  return !!payments[`${roundId}__${name}`];
+}
+
+// ── 성별 관리 ─────────────────────────────────────────
+const GENDER_KEY = 'bowlingApp_genders';
+function loadGenders() {
+  const cached = fbLoad('genders', null);
+  if(cached) return cached;
+  const g = {};
+  for(const name in BASE_PLAYERS) g[name] = FEMALE_PLAYERS.has(name) ? 'F' : 'M';
+  return g;
+}
+function saveGenders(g) { fbSet('genders', g); }
+function isFemale(name) {
+  const g = loadGenders();
+  // localStorage 값 우선, 없으면 FEMALE_PLAYERS 기준
+  if(name in g) return g[name] === 'F';
+  return FEMALE_PLAYERS.has(name);
+}
+function saveGender(name, gender) {
+  if(!isAdmin) { toast('관리자만 변경할 수 있습니다.', 'error'); return; }
+  const g = loadGenders();
+  g[name] = gender;
+  saveGenders(g);
+  renderMemberList();
+  refreshAll();
+  toast(`${name} 성별 ${gender === 'F' ? '여자' : '남자'}로 변경 완료`);
+}
+
+// ── 추가 벌금 (미투표 / 클럽티 미착용 / 무단불참·늦참) ────────────
+// 구조: { id, roundLabel, name, type, amount, paid, date, memo }
+const EXTRA_FINE_TYPES = {
+  vote:   { label: '미투표',         amount: 2000,  icon: '🗳️' },
+  shirt:  { label: '클럽티 미착용',   amount: 5000,  icon: '👕' },
+  absent: { label: '무단불참/늦참',   amount: 10000, icon: '⏰' },
+};
+
+function loadExtraFines() { return fbLoad('extraFines', []); }
+function saveExtraFines(list) { fbSet('extraFines', list); }
+
+function addExtraFine() {
+  if(!isAdmin) { toast('관리자만 추가할 수 있습니다.', 'error'); return; }
+  const name  = document.getElementById('ef_name').value.trim();
+  const type  = document.getElementById('ef_type').value;
+  const round = document.getElementById('ef_round').value.trim();
+  const memo  = document.getElementById('ef_memo').value.trim();
+  if(!name) { toast('이름을 선택하세요.', 'error'); return; }
+  const info = EXTRA_FINE_TYPES[type];
+  const list = loadExtraFines();
+  list.push({ id: 'ef' + Date.now(), roundLabel: round, name, type, amount: info.amount, paid: false, memo });
+  saveExtraFines(list);
+  document.getElementById('ef_memo').value = '';
+  renderExtraFines();
+  renderFineByPlayer();
+  toast(`${name} ${info.label} ${info.amount.toLocaleString()}원 추가!`);
+}
+
+function toggleExtraFinePaid(id) {
+  if(!isAdmin) { toast('관리자만 변경할 수 있습니다.', 'error'); return; }
+  const list = loadExtraFines();
+  const item = list.find(x => x.id === id);
+  if(!item) return;
+  item.paid = !item.paid;
+  saveExtraFines(list);
+  renderExtraFines();
+  renderFineByPlayer();
+  toast(item.paid ? `납부 완료 처리 ✓` : `납부 취소`);
+}
+
+function deleteExtraFine(id) {
+  if(!isAdmin) { toast('관리자만 삭제할 수 있습니다.', 'error'); return; }
+  if(!confirm('이 벌금 항목을 삭제할까요?')) return;
+  const list = loadExtraFines().filter(x => x.id !== id);
+  saveExtraFines(list);
+  renderExtraFines();
+  renderFineByPlayer();
+  toast('삭제 완료');
+}
+
+// ── 상금 ─────────────────────────────────────────────────
+// 구조: { id, roundLabel, name, amount, reason, date }
+function loadPrizes() { return fbLoad('prizes', []); }
+function savePrizes(list) { fbSet('prizes', list); }
+
+function addPrize() {
+  if(!isAdmin) { toast('관리자만 추가할 수 있습니다.', 'error'); return; }
+  const name   = document.getElementById('pr_name').value.trim();
+  const round  = document.getElementById('pr_round').value.trim();
+  const amount = parseInt(document.getElementById('pr_amount').value) || 0;
+  const reason = document.getElementById('pr_reason').value.trim();
+  if(!name)   { toast('이름을 선택하세요.', 'error'); return; }
+  if(!amount) { toast('금액을 입력하세요.', 'error'); return; }
+  if(!reason) { toast('상금 사유를 입력하세요.', 'error'); return; }
+  const list = loadPrizes();
+  list.push({ id: 'pr' + Date.now(), roundLabel: round, name, amount, reason, paid: false });
+  savePrizes(list);
+  document.getElementById('pr_amount').value = '';
+  document.getElementById('pr_reason').value = '';
+  renderPrizes();
+  toast(`${name} 상금 ${amount.toLocaleString()}원 추가!`);
+}
+
+function togglePrizePaid(id) {
+  if(!isAdmin) { toast('관리자만 변경할 수 있습니다.', 'error'); return; }
+  const list = loadPrizes();
+  const item = list.find(x => x.id === id);
+  if(!item) return;
+  item.paid = !item.paid;
+  savePrizes(list);
+  renderPrizes();
+  toast(item.paid ? '지급 완료 ✓' : '지급 취소');
+}
+
+function deletePrize(id) {
+  if(!isAdmin) { toast('관리자만 삭제할 수 있습니다.', 'error'); return; }
+  if(!confirm('이 상금 항목을 삭제할까요?')) return;
+  const list = loadPrizes().filter(x => x.id !== id);
+  savePrizes(list);
+  renderPrizes();
+  toast('삭제 완료');
+}
+
+function initDataIfEmpty() {
+  const data = loadData();
+  if(!data.rounds || data.rounds.length === 0) {
+    data.rounds = JSON.parse(JSON.stringify(INIT_ROUNDS));
+  }
+  // BASE_PLAYERS에만 있고 data.members에 없는 선수만 초기값 설정
+  // (관리자가 수동으로 수정한 기준에버는 덮어쓰지 않음 - 버그 수정)
+  if(!data.members) data.members = {};
+  for(const name in BASE_PLAYERS) {
+    if(!(name in data.members)) {
+      data.members[name] = BASE_PLAYERS[name];
+    }
+  }
+  saveData(data);
+  window._bowlingData = data;
+}
+
+// 초기 데이터 (기존 4회차)
+const INIT_ROUNDS = [
+  {
+    id:'r1', label:'1월 1회차', date:'2026-01-08',
+    scores:[
+      {name:'권우섭',g:[196,235,186],total:617},
+      {name:'김동현',g:[161,206,191],total:558},
+      {name:'김용태',g:[212,211,207],total:630},
+      {name:'박성준',g:[172,154,138],total:464},
+      {name:'박종성',g:[179,180,222],total:581},
+      {name:'양해성',g:[183,135,182],total:500},
+      {name:'오욱현',g:[190,214,216],total:620},
+      {name:'오일주',g:[176,245,181],total:602},
+      {name:'윤미라',g:[145,129,141],total:415},
+      {name:'윤연균',g:[173,150,203],total:526},
+      {name:'이구연',g:[104,97,185], total:386},
+      {name:'이시은',g:[145,132,148],total:425},
+      {name:'이윤경',g:[165,124,164],total:453},
+      {name:'이지윤',g:[217,223,146],total:586},
+      {name:'장경훈',g:[166,122,108],total:396},
+      {name:'장민상',g:[237,144,193],total:574},
+      {name:'장은선',g:[152,120,125],total:397},
+      {name:'장훈석',g:[224,254,205],total:683},
+      {name:'정현수',g:[184,192,245],total:621},
+      {name:'조용상',g:[186,152,130],total:468},
+      {name:'조정행',g:[208,186,192],total:586},
+    ]
+  },
+  {
+    id:'r2', label:'1월 2회차', date:'2026-01-22',
+    scores:[
+      {name:'김상윤', g:[183,229,221], total:633},
+      {name:'박성준', g:[132,146,166], total:444},
+      {name:'오욱현', g:[213,246,216], total:675},
+      {name:'오일주', g:[189,154,234], total:577},
+      {name:'윤연균', g:[163,213,191], total:567},
+      {name:'이구연', g:[103,124,149], total:376},
+      {name:'이시은', g:[132,202,182], total:516},
+      {name:'이지윤', g:[202,167,207], total:576},
+      {name:'장경훈', g:[125,81,142],  total:348},
+      {name:'장은선', g:[110,105,157], total:372},
+      {name:'장훈석', g:[216,267,256], total:739},
+      {name:'정현수', g:[193,201,180], total:574},
+      {name:'조용상', g:[187,140,142], total:469},
+      {name:'조정행', g:[259,213,193], total:665},
+    ]
+  },
+  {
+    id:'r3', label:'2월 1회차', date:'2026-02-12',
+    scores:[
+      {name:'장훈석',g:[227,246,280],total:753},
+      {name:'오욱현',g:[201,246,228],total:675},
+      {name:'윤미라',g:[123,159,179],total:461},
+      {name:'양해성',g:[211,172,201],total:584},
+      {name:'장민상',g:[247,191,171],total:609},
+      {name:'김용태',g:[223,268,159],total:650},
+      {name:'이구연',g:[121,151,183],total:455},
+      {name:'김기범',g:[164,220,165],total:549},
+      {name:'오일주',g:[176,172,210],total:558},
+      {name:'이윤경',g:[177,155,175],total:507},
+      {name:'조정행',g:[167,198,240],total:605},
+      {name:'조용상',g:[123,150,132],total:405},
+      {name:'이재필',g:[196,190,225],total:611},
+      {name:'이지윤',g:[177,176,256],total:609},
+      {name:'장경훈',g:[200,156,167],total:523},
+    ]
+  },
+  {
+    id:'r4', label:'2월 2회차', date:'2026-02-26',
+    scores:[
+      {name:'김용태',g:[225,194,257],total:676},
+      {name:'이구연',g:[159,107,118],total:384},
+      {name:'오일주',g:[157,190,147],total:494},
+      {name:'장은선',g:[125,152,108],total:385},
+      {name:'박종성',g:[142,152,148],total:442},
+      {name:'장훈석',g:[221,249,222],total:692},
+      {name:'조용상',g:[128,98,121], total:347},
+      {name:'양해성',g:[181,192,184],total:557},
+      {name:'이윤경',g:[180,135,146],total:461},
+      {name:'이재필',g:[204,206,256],total:666},
+      {name:'이지윤',g:[232,231,200],total:663},
+      {name:'조정행',g:[201,213,214],total:628},
+      {name:'오욱현',g:[225,239,257],total:721},
+      {name:'장경훈',g:[194,137,199],total:530},
+      {name:'박성준',g:[148,151,139],total:438},
+    ]
+  },
+];
+
+window._bowlingData = { rounds: INIT_ROUNDS, players: {} };
+
+// ── 계산 헬퍼 ─────────────────────────────────────────────
+function calcHandi(avg) { return Math.max(0, Math.min(50, Math.round(180 - avg))); }
+function checkFine(g3, baseAvg, name='') {
+  if(g3.length < 3) return 0;
+  // 여자: 상한 190 / 남자: 상한 200
+  const cap = (name && isFemale(name)) ? 190 : 200;
+  const effectiveAvg = Math.min(baseAvg, cap);
+  const gameAvg = g3.slice(0,3).reduce((a,b) => a+b, 0) / 3;
+  return gameAvg < effectiveAvg ? 2000 : 0;
+}
+
+function getPlayerStats() {
+  const data = loadData();
+  const members = data.members || BASE_PLAYERS;
+  const stats = {};
+  for(const round of data.rounds) {
+    for(const sc of round.scores) {
+      if(!stats[sc.name]) stats[sc.name] = { name:sc.name, rounds:[], totalPins:0, totalGames:0 };
+      stats[sc.name].rounds.push({ label:round.label, date:round.date, g:sc.g, total:sc.total });
+      stats[sc.name].totalPins += sc.total;
+      stats[sc.name].totalGames += sc.g.length;
+    }
+  }
+  for(const name in stats) {
+    const s = stats[name];
+    // 이전에버(BASE_PLAYERS)를 가상 1게임으로 포함해 누적에버 계산
+    // 예) 정현수: (190 + 184+192+245 + ...) / (1 + 실제게임수)
+    const prevAvg = BASE_PLAYERS[name] || members[name] || 0;
+    const adjPins  = s.totalPins  + (prevAvg > 0 ? prevAvg : 0);
+    const adjGames = s.totalGames + (prevAvg > 0 ? 1 : 0);
+    s.avg = adjGames > 0 ? Math.round(adjPins / adjGames) : 0;
+    s.baseAvg = members[name] || BASE_PLAYERS[name] || s.avg; // members(관리자 수정값) 우선
+    s.handi = calcHandi(s.avg || s.baseAvg);
+    s.attend = s.rounds.length;
+    // 회차별 직전 누적에버(200 상한) 기준으로 벌금 정확 계산
+    s.totalFine = data.rounds.reduce((acc, round, roundIdx) => {
+      const sc = round.scores.find(x => x.name === name);
+      if(!sc) return acc;
+      const { avg: prevAvg } = getRoundAvgAndHandi(roundIdx, name);
+      return acc + checkFine(sc.g, prevAvg, name);
+    }, 0);
+    s.bestTotal = s.rounds.length > 0 ? Math.max(...s.rounds.map(r => r.total)) : 0;
+  }
+  const currentMembers = data.members || BASE_PLAYERS;
+  for(const name in stats) {
+    if(!currentMembers.hasOwnProperty(name) && !BASE_PLAYERS.hasOwnProperty(name)) {
+      delete stats[name];
+    }
+  }
+  return stats;
+}
+
+// 회차별 직전 누적에버 기반 벌금/핸디 계산
+// BASE_PLAYERS(이전에버)를 항상 가상 1게임으로 포함해서 계산
+// 예) 2회차 직전에버(정현수): (190 + 184+192+245) / 4 = 202.75
+function getRoundAvgAndHandi(roundIdx, name) {
+  const data = loadData();
+  const members = data.members || BASE_PLAYERS;
+  // 이전에버를 초기 1게임으로 세팅
+  const prevAvg = BASE_PLAYERS[name] || members[name] || 0;
+  let cumPins  = prevAvg > 0 ? prevAvg : 0;
+  let cumGames = prevAvg > 0 ? 1 : 0;
+  // roundIdx 이전 회차 누적
+  for(let i = 0; i < roundIdx; i++) {
+    const sc = data.rounds[i].scores.find(x => x.name === name);
+    if(sc) { cumPins += sc.total; cumGames += sc.g.length; }
+  }
+  if(cumGames > 0) {
+    const avg = Math.round(cumPins / cumGames);
+    return { avg, handi: calcHandi(avg) };
+  }
+  // BASE_PLAYERS에도 없는 완전 신규 회원
+  return { avg: 180, handi: calcHandi(180) };
+}
+
+// 전체 벌금 데이터 계산 (회차별, 선수별)
+function getAllFines() {
+  const data = loadData();
+  const payments = loadFinePayments();
+  const finesByRound = []; // { roundId, label, date, fines: [{name, g, baseAvg, amount, paid}] }
+  const finesByPlayer = {}; // name → { total, paid, unpaid, details }
+
+  data.rounds.forEach((round, roundIdx) => {
+    const roundFines = [];
+    for(const sc of round.scores) {
+      const { avg: baseAvg } = getRoundAvgAndHandi(roundIdx, sc.name);
+      const fine = checkFine(sc.g, baseAvg, sc.name);
+      if(fine > 0) {
+        const payKey = `${round.id}__${sc.name}`;
+        const paid = !!payments[payKey];
+        roundFines.push({ name: sc.name, g: sc.g, baseAvg, amount: fine, paid });
+
+        if(!finesByPlayer[sc.name]) finesByPlayer[sc.name] = { total:0, paid:0, unpaid:0, details:[] };
+        finesByPlayer[sc.name].total += fine;
+        if(paid) finesByPlayer[sc.name].paid += fine;
+        else finesByPlayer[sc.name].unpaid += fine;
+        finesByPlayer[sc.name].details.push({ roundId: round.id, label: round.label, date: round.date, g: sc.g, amount: fine, paid });
+      }
+    }
+    if(roundFines.length > 0) {
+      finesByRound.push({ roundId: round.id, label: round.label, date: round.date, fines: roundFines });
+    }
+  });
+
+  return { finesByRound, finesByPlayer };
+}
+
+// ── UI 헬퍼 ──────────────────────────────────────────────
+function showSection(id, btn) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  if(id === 'ranking') renderRanking(currentRankTab || 'avg');
+  if(id === 'rounds') renderRounds();
+  if(id === 'players') renderPlayers();
+  if(id === 'members') renderMemberList();
+  if(id === 'fines') renderFines();
+  if(id === 'prizes') renderPrizes();
+  if(id === 'notice') renderNotice();
+renderDues();
+  if(id === 'dues') renderDues();
+  if(id === 'sponsor') renderSponsor();
+}
+
+function toast(msg, type='success') {
+  const t = document.getElementById('toast');
+  t.className = `toast show ${type}`;
+  t.innerHTML = (type==='success'?'✅':'❌') + ' ' + msg;
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ── 이미지 업로드 & AI 인식 ────────────────────────────────
+const uploadArea = document.getElementById('uploadArea');
+const fileInput = document.getElementById('fileInput');
+
+uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.classList.add('drag'); });
+uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('drag'));
+uploadArea.addEventListener('drop', e => {
+  e.preventDefault(); uploadArea.classList.remove('drag');
+  const file = e.dataTransfer.files[0];
+  if(file && file.type.startsWith('image/')) handleImage(file);
+});
+fileInput.addEventListener('change', e => { if(e.target.files[0]) handleImage(e.target.files[0]); });
+
+function handleImage(file) {
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    const preview = document.getElementById('previewImg');
+    preview.src = e.target.result;
+    preview.style.display = 'block';
+    await recognizeScores(e.target.result);
+  };
+  reader.readAsDataURL(file);
+}
+
+async function recognizeScores(dataUrl) {
+  const loading = document.getElementById('loading');
+  loading.classList.add('show');
+  document.getElementById('scoreEditor').classList.remove('show');
+
+  try {
+    const base64 = dataUrl.split(',')[1];
+    const mediaType = dataUrl.split(';')[0].split(':')[1];
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
+            { type: 'text', text: `이 볼링 점수표 이미지에서 선수별 점수를 추출해주세요.
+반드시 아래 JSON 형식으로만 응답하세요. 다른 텍스트 없이 JSON만:
+{"scores":[{"name":"선수이름","g1":숫자,"g2":숫자,"g3":숫자,"total":숫자},...]}
+- 이름이 한글로 적혀있으면 그대로 사용
+- 점수가 안보이면 0으로
+- total이 없으면 g1+g2+g3 합산` }
+          ]
+        }]
+      })
+    });
+
+    const data = await response.json();
+    const text = data.content?.[0]?.text || '';
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if(!jsonMatch) throw new Error('JSON 파싱 실패');
+    const parsed = JSON.parse(jsonMatch[0]);
+    renderScoreEditor(parsed.scores || []);
+    toast('점수표 인식 완료!');
+  } catch(err) {
+    console.error(err);
+    toast('인식 실패. 수동으로 입력해주세요.', 'error');
+    renderScoreEditor([]);
+  } finally {
+    loading.classList.remove('show');
+  }
+}
+
+function renderScoreEditor(scores) {
+  const tbody = document.getElementById('scoreTableBody');
+  tbody.innerHTML = '';
+  const rows = scores.length > 0 ? scores : [{ name:'', g1:0, g2:0, g3:0, total:0 }];
+  for(const sc of rows) {
+    const baseAvg = BASE_PLAYERS[sc.name] || 0;
+    const total = sc.total || ((sc.g1||0)+(sc.g2||0)+(sc.g3||0));
+    const avg = total > 0 ? Math.round(total/3) : '-';
+    const fine = baseAvg && sc.g1 && sc.g2 && sc.g3 && checkFine([sc.g1,sc.g2,sc.g3], baseAvg, sc.name) > 0 ? '2,000' : '';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="td-name"><input type="text" value="${sc.name||''}" style="width:90px;" placeholder="이름" class="name-input" onchange="updateRow(this)"></td>
+      <td><input type="number" value="${sc.g1||''}" min="0" max="300" class="g-input" onchange="updateRow(this)"></td>
+      <td><input type="number" value="${sc.g2||''}" min="0" max="300" class="g-input" onchange="updateRow(this)"></td>
+      <td><input type="number" value="${sc.g3||''}" min="0" max="300" class="g-input" onchange="updateRow(this)"></td>
+      <td class="td-total score-total">${total||''}</td>
+      <td class="td-avg score-avg">${avg}</td>
+      <td style="color:var(--text3);font-size:12px;">${baseAvg||'-'}</td>
+      <td class="fine-badge score-fine">${fine ? '💸 '+fine : ''}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+  document.getElementById('scoreEditor').classList.add('show');
+}
+
+function updateRow(input) {
+  const tr = input.closest('tr');
+  const name = tr.querySelector('.name-input').value;
+  const g1 = parseInt(tr.querySelectorAll('.g-input')[0].value)||0;
+  const g2 = parseInt(tr.querySelectorAll('.g-input')[1].value)||0;
+  const g3 = parseInt(tr.querySelectorAll('.g-input')[2].value)||0;
+  const total = g1+g2+g3;
+  tr.querySelector('.score-total').textContent = total||'';
+  tr.querySelector('.score-avg').textContent = total>0?Math.round(total/3):'-';
+  const baseAvg = BASE_PLAYERS[name]||0;
+  const fine = baseAvg && g1 && g2 && g3 && checkFine([g1,g2,g3],baseAvg,name) > 0 ? '💸 2,000' : '';
+  tr.querySelector('.score-fine').textContent = fine;
+}
+
+function addManualRow() {
+  const editor = document.getElementById('scoreEditor');
+  editor.classList.add('show');
+  const tbody = document.getElementById('scoreTableBody');
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td class="td-name"><input type="text" style="width:90px;" placeholder="이름" class="name-input" onchange="updateRow(this)"></td>
+    <td><input type="number" min="0" max="300" class="g-input" onchange="updateRow(this)"></td>
+    <td><input type="number" min="0" max="300" class="g-input" onchange="updateRow(this)"></td>
+    <td><input type="number" min="0" max="300" class="g-input" onchange="updateRow(this)"></td>
+    <td class="td-total score-total"></td>
+    <td class="td-avg score-avg">-</td>
+    <td style="color:var(--text3);font-size:12px;">-</td>
+    <td class="fine-badge score-fine"></td>
+  `;
+  tbody.appendChild(tr);
+}
+
+function clearEditor() {
+  document.getElementById('scoreEditor').classList.remove('show');
+  document.getElementById('previewImg').style.display='none';
+  document.getElementById('fileInput').value='';
+}
+
+function saveScores() {
+  if(!isAdmin) { toast('관리자만 점수를 저장할 수 있습니다.', 'error'); return; }
+  const rows = document.querySelectorAll('#scoreTableBody tr');
+  const roundLabel = document.getElementById('matchRound').value;
+  const date = document.getElementById('matchDate').value || new Date().toISOString().slice(0,10);
+  const scores = [];
+  for(const tr of rows) {
+    const name = tr.querySelector('.name-input').value.trim();
+    const gs = [...tr.querySelectorAll('.g-input')].map(i => parseInt(i.value)||0);
+    if(!name || gs.every(g=>g===0)) continue;
+    scores.push({ name, g:gs, total:gs.reduce((a,b)=>a+b,0) });
+  }
+  if(scores.length === 0) { toast('저장할 점수가 없습니다.', 'error'); return; }
+  const data = loadData();
+  const existing = data.rounds.find(r => r.label === roundLabel);
+  if(existing) {
+    for(const sc of scores) {
+      const idx = existing.scores.findIndex(s=>s.name===sc.name);
+      if(idx>=0) existing.scores[idx] = sc; else existing.scores.push(sc);
+    }
+  } else {
+    data.rounds.push({ id:'r'+Date.now(), label:roundLabel, date, scores });
+  }
+  saveData(data);
+  clearEditor();
+  refreshAll();
+  toast(`${roundLabel} 점수 저장 완료! (${scores.length}명)`);
+}
+
+// ── 순위 렌더링 ──────────────────────────────────────────
+let currentRankTab = 'avg';
+function switchRankTab(type, btn) {
+  currentRankTab = type;
+  document.querySelectorAll('#ranking .tab').forEach(t=>t.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  renderRanking(type);
+}
+
+function renderRanking(type) {
+  const stats = getPlayerStats();
+  const data = loadData();
+  const currentMembers = data.members || BASE_PLAYERS;
+  let list = Object.values(stats).filter(s => currentMembers.hasOwnProperty(s.name) || BASE_PLAYERS.hasOwnProperty(s.name));
+  const container = document.getElementById('rankList');
+
+  const titles = {
+    avg:'🏅 노핸디 에버리지 순위',
+    handi_applied:'🎯 핸디 적용 총점 순위',
+    total:'📊 총 핀수 순위',
+    handi:'🔧 핸디 현황',
+    handi_history:'📈 핸디 변동 이력'
+  };
+  document.getElementById('rankTitle').textContent = titles[type];
+
+  if(type === 'handi_history') {
+    if(list.length===0){container.innerHTML=`<div class="empty"><div class="empty-icon">📈</div><div class="empty-text">데이터 없음</div></div>`;return;}
+    const rounds = data.rounds;
+    const histRows = list.sort((a,b)=>a.name.localeCompare(b.name)).map(s => {
+      const baseAvg = BASE_PLAYERS[s.name] || 0;  // 1월8일 직전에버 (벌금/핸디계산용)
+      let cumPins = 0, cumGames = 0;
+      const snapshots = rounds.map(r => {
+        const sc = r.scores.find(x=>x.name===s.name);
+        if(sc){ cumPins += sc.total; cumGames += sc.g.length; }
+        const avg = cumGames>0 ? cumPins/cumGames : null;
+        const handi = avg!==null ? calcHandi(avg) : (baseAvg ? calcHandi(baseAvg) : null);
+        return { label:r.label, avg, handi, played:!!sc };
+      });
+      const origAvg = ORIGINAL_PLAYERS[s.name] || 0; // 정기전 시작 전 원래 에버
+      const initHandi = origAvg ? calcHandi(origAvg) : '-';
+      const currHandi = s.handi;
+      const diff = typeof initHandi==='number' ? currHandi - initHandi : 0;
+      return { name:s.name, baseAvg, initHandi, currHandi, diff, snapshots };
+    });
+    container.innerHTML = `
+    <div style="overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;min-width:700px;">
+      <thead><tr>
+        <th style="padding:10px 16px;text-align:left;font-size:11px;color:var(--text3);background:var(--bg3);border-bottom:1px solid var(--border);">선수</th>
+        <th style="padding:10px 12px;font-size:11px;color:var(--text3);background:var(--bg3);border-bottom:1px solid var(--border);">초기핸디<br><span style="font-weight:400;">(정기전 전)</span></th>
+        ${rounds.map(r=>`<th style="padding:10px 12px;font-size:11px;color:var(--text3);background:var(--bg3);border-bottom:1px solid var(--border);text-align:center;">${r.label.replace('회차','')}<br><span style="color:var(--text3);font-weight:400;">(에버→핸디)</span></th>`).join('')}
+        <th style="padding:10px 12px;font-size:11px;color:var(--text3);background:var(--bg3);border-bottom:1px solid var(--border);">현재핸디</th>
+        <th style="padding:10px 12px;font-size:11px;color:var(--text3);background:var(--bg3);border-bottom:1px solid var(--border);">변동</th>
+      </tr></thead>
+      <tbody>
+        ${histRows.map((row,i)=>`
+        <tr style="background:${i%2===0?'var(--bg3)':'transparent'}">
+          <td style="padding:10px 16px;font-weight:700;font-size:13px;border-bottom:1px solid rgba(30,45,69,0.4);">${row.name}</td>
+          <td style="padding:10px 12px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:13px;border-bottom:1px solid rgba(30,45,69,0.4);color:var(--text2);">${row.initHandi}</td>
+          ${row.snapshots.map(snap=>`
+            <td style="padding:10px 12px;text-align:center;border-bottom:1px solid rgba(30,45,69,0.4);">
+              ${snap.played && snap.avg!==null
+                ? `<div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text2);">${Math.round(snap.avg)}</div>
+                   <div style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:var(--accent);">→ ${snap.handi}</div>`
+                : `<div style="color:var(--text3);font-size:11px;">불참</div>`}
+            </td>`).join('')}
+          <td style="padding:10px 12px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:700;color:var(--blue);border-bottom:1px solid rgba(30,45,69,0.4);">${row.currHandi}</td>
+          <td style="padding:10px 12px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;border-bottom:1px solid rgba(30,45,69,0.4);color:${row.diff>0?'var(--red)':row.diff<0?'var(--green)':'var(--text3)'};">
+            ${row.diff>0?'▲'+row.diff:row.diff<0?'▼'+Math.abs(row.diff):'-'}
+          </td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+    </div>
+    <div style="padding:12px 16px;font-size:11px;color:var(--text3);border-top:1px solid var(--border);">
+      ▲ 핸디 증가(에버↓) &nbsp;|&nbsp; ▼ 핸디 감소(에버↑) &nbsp;|&nbsp; 핸디 = MAX(0, MIN(50, ROUND(180 - 누적에버리지)))
+    </div>`;
+    return;
+  }
+
+  if(type === 'handi') {
+    list.sort((a,b)=>b.handi-a.handi);
+    container.innerHTML = list.map((s,i) => {
+      const origAvg = ORIGINAL_PLAYERS[s.name] || BASE_PLAYERS[s.name] || 0; // ORIGINAL_PLAYERS 기준으로 통일
+      const initHandi = origAvg ? calcHandi(origAvg) : 0;
+      const diff = s.handi - initHandi;
+      const diffStr = diff>0?`<span style="color:var(--red)">▲${diff}</span>`:diff<0?`<span style="color:var(--green)">▼${Math.abs(diff)}</span>`:`<span style="color:var(--text3)">-</span>`;
+      const barW = Math.round((s.handi/50)*100);
+      return `
+      <div class="rank-row" style="flex-wrap:wrap;gap:8px;">
+        <div class="rank-num ${i<3?['rank-1','rank-2','rank-3'][i]:'rank-other'}">${i+1}</div>
+        <div style="flex:1;min-width:120px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+            <span class="rank-name">${s.name}</span>
+            <span class="rank-attend">${s.attend}회 참가</span>
+          </div>
+          <div style="background:var(--bg3);border-radius:4px;height:6px;overflow:hidden;max-width:200px;">
+            <div style="width:${barW}%;height:100%;background:linear-gradient(90deg,var(--blue),var(--accent));border-radius:4px;transition:width .5s;"></div>
+          </div>
+        </div>
+        <div class="rank-stats">
+          <div class="rank-stat"><div class="rank-stat-val" style="font-size:22px;color:var(--accent)">${s.handi}</div><div class="rank-stat-label">현재 핸디</div></div>
+          <div class="rank-stat"><div class="rank-stat-val" style="color:var(--text2)">${initHandi}</div><div class="rank-stat-label">초기 핸디</div></div>
+          <div class="rank-stat"><div class="rank-stat-val">${diffStr}</div><div class="rank-stat-label">변동</div></div>
+          <div class="rank-stat"><div class="rank-stat-val" style="color:var(--text2)">${s.avg?Math.round(s.avg):'-'}</div><div class="rank-stat-label">누적에버</div></div>
+        </div>
+      </div>`;
+    }).join('');
+    return;
+  }
+
+  if(type === 'handi_applied') {
+    // 각 회차 당시의 직전 누적에버 기반 핸디를 사용해 정확하게 계산
+    const data2 = loadData();
+    list = list.map(s => {
+      let totalHandiPins = 0;
+      for(const round of data2.rounds) {
+        const sc = round.scores.find(x => x.name === s.name);
+        if(!sc) continue;
+        const roundIdx = data2.rounds.indexOf(round);
+        const { handi } = getRoundAvgAndHandi(roundIdx, s.name);
+        totalHandiPins += sc.total + handi * sc.g.length;
+      }
+      return {
+        ...s,
+        handiTotal: totalHandiPins,
+        handiAvg: s.totalGames > 0 ? Math.round(totalHandiPins / s.totalGames) : 0
+      };
+    }).sort((a,b)=>b.handiTotal-a.handiTotal);
+    container.innerHTML = list.map((s,i) => {
+      const rankClass = i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':'rank-other';
+      return `
+      <div class="rank-row">
+        <div class="rank-num ${rankClass}">${i+1}</div>
+        <div>
+          <div class="rank-name">${s.name} <span class="rank-attend">${s.attend}회 참가</span></div>
+          <div style="margin-top:3px;display:flex;gap:6px;">
+            <span class="handi-chip">핸디 ${s.handi}</span>
+            <span style="font-size:11px;color:var(--text3);">노핸디 ${s.totalPins}핀</span>
+          </div>
+        </div>
+        <div class="rank-stats">
+          <div class="rank-stat"><div class="rank-stat-val" style="font-size:20px;color:var(--accent)">${s.handiTotal.toLocaleString()}</div><div class="rank-stat-label">핸디적용 총핀</div></div>
+          <div class="rank-stat"><div class="rank-stat-val" style="color:var(--blue)">${s.handiAvg}</div><div class="rank-stat-label">핸디적용 에버</div></div>
+          <div class="rank-stat"><div class="rank-stat-val" style="color:var(--text2)">${s.avg?Math.round(s.avg):'-'}</div><div class="rank-stat-label">노핸디 에버</div></div>
+        </div>
+      </div>`;
+    }).join('');
+    return;
+  }
+
+  if(type==='avg') list.sort((a,b)=>b.avg-a.avg);
+  else list.sort((a,b)=>b.totalPins-a.totalPins);
+
+  if(list.length===0){container.innerHTML=`<div class="empty"><div class="empty-icon">🎳</div><div class="empty-text">아직 데이터가 없습니다</div></div>`;return;}
+
+  container.innerHTML = list.map((s,i) => {
+    const rankClass = i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':'rank-other';
+    const mainVal = type==='avg' ? (s.avg?Math.round(s.avg):'-') : s.totalPins.toLocaleString();
+    const mainLabel = type==='avg' ? '누적 에버리지' : '총 핀수';
+    return `
+    <div class="rank-row">
+      <div class="rank-num ${rankClass}">${i+1}</div>
+      <div>
+        <div class="rank-name">${s.name} <span class="rank-attend">${s.attend}회 참가</span></div>
+        <div style="margin-top:2px;"><span class="handi-chip">핸디 ${s.handi}</span></div>
+      </div>
+      <div class="rank-stats">
+        <div class="rank-stat"><div class="rank-stat-val" style="color:var(--accent);font-size:20px;">${mainVal}</div><div class="rank-stat-label">${mainLabel}</div></div>
+        <div class="rank-stat"><div class="rank-stat-val" style="color:var(--blue)">${s.totalPins}</div><div class="rank-stat-label">총 핀</div></div>
+        <div class="rank-stat"><div class="rank-stat-val" style="color:var(--text2)">${s.bestTotal}</div><div class="rank-stat-label">최고총점</div></div>
+        ${s.totalFine ? `<div class="rank-stat"><div class="rank-stat-val" style="color:var(--red)">${s.totalFine.toLocaleString()}</div><div class="rank-stat-label">벌금</div></div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── 회차 기록 ─────────────────────────────────────────────
+function renderRounds() {
+  const data = loadData();
+  const container = document.getElementById('roundsGrid');
+  if(data.rounds.length===0) {
+    container.innerHTML=`<div class="empty"><div class="empty-icon">📅</div><div class="empty-text">회차 기록이 없습니다</div></div>`;
+    return;
+  }
+  const sortedRounds = [...data.rounds].reverse();
+  container.innerHTML = sortedRounds.map((r) => {
+    const roundIdx = data.rounds.findIndex(x => x.id === r.id);
+    const sorted = [...r.scores].sort((a,b)=>b.total-a.total);
+    const fineList = r.scores.filter(sc => {
+      const { avg } = getRoundAvgAndHandi(roundIdx, sc.name);
+      return avg && checkFine(sc.g, avg, sc.name) > 0;
+    });
+    const totalFine = fineList.length * 2000;
+
+    return `
+    <div class="round-card">
+      <div class="round-card-header">
+        <div>
+          <div class="round-date">${r.label}</div>
+          <div class="round-count" style="margin-top:2px;">${r.date} · ${r.scores.length}명 참가</div>
+        </div>
+        <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--text3);">최고: ${sorted[0]?.total||0}</div>
+          ${fineList.length > 0 ? `<div style="font-size:11px;color:var(--red);">💸 벌금 ${fineList.length}명 · ${totalFine.toLocaleString()}원</div>` : ''}
+        </div>
+      </div>
+      ${sorted.map((sc,i) => {
+        const { avg: roundAvg, handi } = getRoundAvgAndHandi(roundIdx, sc.name);
+        const fine = checkFine(sc.g, roundAvg, sc.name);
+        const handiTotal = sc.total + handi * 3;
+        const avg = Math.round(sc.total / sc.g.length);
+        const gScores = sc.g.map(g => {
+          const under = roundAvg && g < roundAvg;
+          return `<span style="${under ? 'color:var(--red);font-weight:700;' : ''}">${g}</span>`;
+        }).join(' · ');
+        return `
+        <div class="round-entry" style="${fine ? 'background:rgba(239,68,68,0.04);' : ''}">
+          <div style="display:flex;align-items:center;gap:8px;min-width:0;">
+            <span style="font-size:11px;color:var(--text3);width:16px;flex-shrink:0;">${i+1}</span>
+            <div style="min-width:0;">
+              <div style="display:flex;align-items:center;gap:6px;">
+                <span class="round-entry-name">${sc.name}</span>
+                ${fine ? `<span style="font-size:10px;background:rgba(239,68,68,0.15);color:var(--red);border:1px solid rgba(239,68,68,0.3);padding:1px 6px;border-radius:10px;white-space:nowrap;">💸 벌금</span>` : ''}
+              </div>
+              <div style="font-size:11px;color:var(--text3);margin-top:2px;">직전에버 ${Math.round(roundAvg)} · 핸디 ${handi}</div>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;">
+            <div style="display:flex;gap:8px;align-items:center;">
+              <span class="round-entry-scores">${gScores}</span>
+              <span class="round-entry-total">${sc.total}</span>
+              ${isAdmin ? `<button onclick="deletePlayerFromRound('${r.id}','${sc.name}')" title="${sc.name} 삭제"
+                style="background:none;border:1px solid rgba(239,68,68,0.3);color:var(--red);border-radius:6px;
+                       padding:2px 7px;font-size:11px;cursor:pointer;transition:all .2s;white-space:nowrap;"
+                onmouseover="this.style.background='rgba(239,68,68,0.15)'"
+                onmouseout="this.style.background='none'">✕</button>` : ''}
+            </div>
+            <div style="font-size:11px;color:var(--text3);">에버 ${avg} · 핸디적용 <span style="color:var(--accent);font-weight:600;">${handiTotal}</span></div>
+          </div>
+        </div>`;
+      }).join('')}
+      ${fineList.length > 0 ? `
+      <div style="padding:10px 16px;background:rgba(239,68,68,0.06);border-top:1px solid rgba(239,68,68,0.15);display:flex;align-items:center;gap:8px;">
+        <span style="font-size:12px;color:var(--red);font-weight:600;">💸 벌금 대상:</span>
+        <span style="font-size:12px;color:var(--text2);">${fineList.map(sc=>sc.name).join(', ')}</span>
+        <span style="margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:var(--red);">${totalFine.toLocaleString()}원</span>
+      </div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+// ── 선수 현황 ─────────────────────────────────────────────
+function renderPlayers() {
+  const stats = getPlayerStats();
+  const data = loadData();
+  const payments = loadFinePayments();
+  const allNames = new Set([...Object.keys(BASE_PLAYERS), ...Object.keys(stats)]);
+  const container = document.getElementById('playersGrid');
+  container.innerHTML = '';
+
+  // 선수별 납부 벌금 계산
+  const { finesByPlayer } = getAllFines();
+
+  for(const name of [...allNames].sort()) {
+    const s = stats[name] || { name, rounds:[], totalPins:0, totalGames:0, avg:0, attend:0, totalFine:0, bestTotal:0 };
+    const baseAvg = BASE_PLAYERS[name] || 0;
+    const handi = calcHandi(s.avg || baseAvg);
+    const fp = finesByPlayer[name];
+    const div = document.createElement('div');
+    div.className = 'stat-card';
+    div.innerHTML = `
+      <div class="stat-name">${name}</div>
+      <div class="stat-row"><span class="stat-label">기준 에버리지</span><span class="stat-val">${baseAvg}</span></div>
+      <div class="stat-row"><span class="stat-label">누적 에버리지</span><span class="stat-val accent">${s.avg?Math.round(s.avg):'-'}</span></div>
+      <div class="stat-row"><span class="stat-label">현재 핸디</span><span class="stat-val blue">${handi}</span></div>
+      <div class="stat-row"><span class="stat-label">출전 횟수</span><span class="stat-val">${s.attend}회</span></div>
+      <div class="stat-row"><span class="stat-label">총 핀수</span><span class="stat-val">${s.totalPins.toLocaleString()}</span></div>
+      <div class="stat-row"><span class="stat-label">최고 총점</span><span class="stat-val green">${s.bestTotal||'-'}</span></div>
+      ${fp ? `
+      <div class="stat-row"><span class="stat-label">누적 벌금</span><span class="stat-val red">${fp.total.toLocaleString()}원</span></div>
+      <div class="stat-row"><span class="stat-label">납부 완료</span><span class="stat-val green">${fp.paid.toLocaleString()}원</span></div>
+      ${fp.unpaid > 0 ? `<div class="stat-row"><span class="stat-label">미납금액</span><span class="stat-val red">${fp.unpaid.toLocaleString()}원</span></div>` : ''}
+      ` : ''}
+    `;
+    container.appendChild(div);
+  }
+}
+
+// ── 벌금 관리 ─────────────────────────────────────────────
+let currentFineTab = 'by_round';
+
+function switchFineTab(type, btn) {
+  currentFineTab = type;
+  document.querySelectorAll('#fines .tab').forEach(t => t.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  renderFines();
+}
+
+function renderFines() {
+  if(currentFineTab === 'by_round') renderFineByRound();
+  else if(currentFineTab === 'by_player') renderFineByPlayer();
+  else if(currentFineTab === 'extra') renderExtraFines();
+}
+
+function renderFineByRound() {
+  const { finesByRound } = getAllFines();
+  const container = document.getElementById('fineContent');
+
+  if(finesByRound.length === 0) {
+    container.innerHTML = `<div class="empty"><div class="empty-icon">💸</div><div class="empty-text">벌금 대상자가 없습니다</div><div class="empty-sub">모든 게임에서 기준에버 이상을 기록했습니다!</div></div>`;
+    return;
+  }
+
+  // 통계 요약
+  let totalFine = 0, totalPaid = 0, totalUnpaid = 0, totalCount = 0, paidCount = 0;
+  finesByRound.forEach(r => {
+    r.fines.forEach(f => {
+      totalFine += f.amount;
+      totalCount++;
+      if(f.paid) { totalPaid += f.amount; paidCount++; }
+      else totalUnpaid += f.amount;
+    });
+  });
+
+  const payRate = totalCount > 0 ? Math.round(paidCount/totalCount*100) : 0;
+
+  container.innerHTML = `
+  <!-- 요약 카드 -->
+  <div class="fine-summary-grid" style="margin-bottom:28px;">
+    <div class="fine-summary-card" style="border-color:rgba(239,68,68,0.3);">
+      <div class="fine-summary-icon">💸</div>
+      <div class="fine-summary-val" style="color:var(--red);">${totalFine.toLocaleString()}<span style="font-size:14px;font-weight:400;">원</span></div>
+      <div class="fine-summary-label">총 벌금 합계</div>
+    </div>
+    <div class="fine-summary-card" style="border-color:rgba(34,197,94,0.3);">
+      <div class="fine-summary-icon">✅</div>
+      <div class="fine-summary-val" style="color:var(--green);">${totalPaid.toLocaleString()}<span style="font-size:14px;font-weight:400;">원</span></div>
+      <div class="fine-summary-label">납부 완료</div>
+    </div>
+    <div class="fine-summary-card" style="border-color:rgba(239,68,68,0.2);">
+      <div class="fine-summary-icon">⏳</div>
+      <div class="fine-summary-val" style="color:${totalUnpaid>0?'var(--red)':'var(--text2)'};">${totalUnpaid.toLocaleString()}<span style="font-size:14px;font-weight:400;">원</span></div>
+      <div class="fine-summary-label">미납 합계</div>
+    </div>
+    <div class="fine-summary-card">
+      <div class="fine-summary-icon">📊</div>
+      <div class="fine-summary-val" style="color:var(--accent);">${payRate}<span style="font-size:14px;font-weight:400;">%</span></div>
+      <div class="fine-summary-label">납부율 (${paidCount}/${totalCount}명)</div>
+    </div>
+    <div class="fine-summary-card">
+      <div class="fine-summary-icon">🎳</div>
+      <div class="fine-summary-val" style="color:var(--blue);">${totalCount}<span style="font-size:14px;font-weight:400;">건</span></div>
+      <div class="fine-summary-label">총 벌금 건수</div>
+    </div>
+  </div>
+
+  <!-- 납부 안내 -->
+  <div style="background:rgba(249,115,22,0.06);border:1px solid rgba(249,115,22,0.2);border-radius:12px;padding:14px 18px;margin-bottom:24px;display:flex;align-items:center;gap:10px;">
+    <span style="font-size:18px;">💡</span>
+    <div style="font-size:13px;color:var(--text2);">
+      체크박스를 클릭하면 납부 상태가 변경됩니다.
+      ${!isAdmin ? '<span style="color:var(--text3);"> (관리자 로그인 시 수정 가능)</span>' : ''}
+    </div>
+  </div>
+
+  <!-- 회차별 카드 -->
+  ${[...finesByRound].reverse().map(r => {
+    const roundTotal = r.fines.reduce((a,f) => a+f.amount, 0);
+    const roundPaid = r.fines.filter(f=>f.paid).reduce((a,f)=>a+f.amount, 0);
+    const roundUnpaid = roundTotal - roundPaid;
+    const allPaid = r.fines.every(f=>f.paid);
+    return `
+    <div class="fine-round-card">
+      <div class="fine-round-header">
+        <div>
+          <div style="font-weight:700;font-size:15px;display:flex;align-items:center;gap:8px;">
+            ${r.label}
+            ${allPaid ? `<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:rgba(34,197,94,0.15);color:var(--green);border:1px solid rgba(34,197,94,0.3);">✓ 정산완료</span>` : ''}
+          </div>
+          <div style="font-size:12px;color:var(--text3);margin-top:3px;">${r.date} · 벌금대상 ${r.fines.length}명</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:700;color:var(--red);">${roundTotal.toLocaleString()}원</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px;">
+            납부 <span style="color:var(--green);font-weight:600;">${roundPaid.toLocaleString()}</span> · 
+            미납 <span style="color:${roundUnpaid>0?'var(--red)':'var(--text3)'};">${roundUnpaid.toLocaleString()}</span>
+          </div>
+        </div>
+      </div>
+      ${r.fines.map(f => `
+      <div class="fine-row ${f.paid ? 'paid' : ''}">
+        <!-- 체크박스 -->
+        <div class="fine-check-wrap">
+          <input type="checkbox" id="chk_${r.roundId}_${f.name}"
+            ${f.paid ? 'checked' : ''}
+            ${!isAdmin ? 'disabled' : ''}
+            onchange="toggleFinePaymentAndRefresh('${r.roundId}','${f.name}')">
+          <label class="fine-check-box" for="chk_${r.roundId}_${f.name}" style="${!isAdmin?'cursor:not-allowed;opacity:0.5;':''}"></label>
+        </div>
+        <!-- 이름 & 정보 -->
+        <div style="flex:1;min-width:0;">
+          <div class="fine-name" style="${f.paid ? 'text-decoration:line-through;color:var(--text3);' : ''}">${f.name}</div>
+          <div class="fine-detail">
+            게임: ${f.g.map((g,i) => `<span style="${g < f.baseAvg ? 'color:var(--red);' : ''}">${g}</span>`).join(' · ')}
+            &nbsp;·&nbsp; 기준에버 ${Math.round(f.baseAvg)}
+          </div>
+        </div>
+        <!-- 금액 & 뱃지 -->
+        <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+          <div class="fine-amount" style="${f.paid ? 'color:var(--text3);text-decoration:line-through;' : ''}">${f.amount.toLocaleString()}원</div>
+          ${f.paid
+            ? `<span class="fine-paid-badge">✓ 납부완료</span>`
+            : `<span class="fine-unpaid-badge">⏳ 미납</span>`}
+        </div>
+      </div>`).join('')}
+    </div>`;
+  }).join('')}
+  `;
+}
+
+function toggleFinePaymentAndRefresh(roundId, name) {
+  if(!isAdmin) { toast('관리자만 납부 상태를 변경할 수 있습니다.', 'error'); return; }
+  const payments = loadFinePayments();
+  const key = `${roundId}__${name}`;
+  const newVal = !payments[key];
+  payments[key] = newVal;
+  saveFinePayments(payments);
+  renderFineByRound();
+  toast(newVal ? `${name} 납부 완료 처리 ✓` : `${name} 납부 취소`, newVal ? 'success' : 'error');
+}
+
+function renderFineByPlayer() {
+  const { finesByPlayer } = getAllFines();
+  const container = document.getElementById('fineContent');
+  const players = Object.entries(finesByPlayer).sort((a,b) => b[1].unpaid - a[1].unpaid || b[1].total - a[1].total);
+
+  if(players.length === 0) {
+    container.innerHTML = `<div class="empty"><div class="empty-icon">🎉</div><div class="empty-text">벌금 대상자가 없습니다</div></div>`;
+    return;
+  }
+
+  const totalAll = players.reduce((a,[,p])=>a+p.total, 0);
+  const paidAll = players.reduce((a,[,p])=>a+p.paid, 0);
+  const unpaidAll = players.reduce((a,[,p])=>a+p.unpaid, 0);
+
+  container.innerHTML = `
+  <!-- 요약 -->
+  <div class="fine-summary-grid" style="margin-bottom:28px;">
+    <div class="fine-summary-card" style="border-color:rgba(239,68,68,0.3);">
+      <div class="fine-summary-icon">💸</div>
+      <div class="fine-summary-val" style="color:var(--red);">${totalAll.toLocaleString()}<span style="font-size:14px;">원</span></div>
+      <div class="fine-summary-label">총 누적 벌금</div>
+    </div>
+    <div class="fine-summary-card" style="border-color:rgba(34,197,94,0.3);">
+      <div class="fine-summary-icon">✅</div>
+      <div class="fine-summary-val" style="color:var(--green);">${paidAll.toLocaleString()}<span style="font-size:14px;">원</span></div>
+      <div class="fine-summary-label">총 납부 금액</div>
+    </div>
+    <div class="fine-summary-card">
+      <div class="fine-summary-icon">⏳</div>
+      <div class="fine-summary-val" style="color:${unpaidAll>0?'var(--red)':'var(--text2)'};">${unpaidAll.toLocaleString()}<span style="font-size:14px;">원</span></div>
+      <div class="fine-summary-label">총 미납 금액</div>
+    </div>
+    <div class="fine-summary-card">
+      <div class="fine-summary-icon">👤</div>
+      <div class="fine-summary-val" style="color:var(--accent);">${players.length}<span style="font-size:14px;">명</span></div>
+      <div class="fine-summary-label">벌금 부과 인원</div>
+    </div>
+  </div>
+
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden;">
+    <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+      <div style="font-weight:700;font-size:15px;">👤 선수별 벌금 누적 현황</div>
+      <div style="font-size:12px;color:var(--text3);">미납액 내림차순 정렬</div>
+    </div>
+    ${players.map(([name, p]) => {
+      const barPaid = p.total > 0 ? Math.round(p.paid / p.total * 100) : 0;
+      return `
+      <div class="fine-player-card">
+        <div style="width:130px;flex-shrink:0;">
+          <div style="font-weight:700;font-size:14px;">${name}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:3px;">${p.details.length}회 벌금</div>
+        </div>
+        <!-- 납부 진행 바 -->
+        <div class="fine-bar-wrap" style="flex:1;max-width:180px;">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:5px;">납부율 ${barPaid}%</div>
+          <div class="fine-bar-bg">
+            <div class="fine-bar-fill fine-bar-paid" style="width:${barPaid}%;"></div>
+          </div>
+        </div>
+        <!-- 금액 정보 -->
+        <div style="display:flex;gap:20px;flex-wrap:wrap;">
+          <div style="text-align:center;">
+            <div style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:15px;color:var(--red);">${p.total.toLocaleString()}</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:2px;">총 벌금</div>
+          </div>
+          <div style="text-align:center;">
+            <div style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:15px;color:var(--green);">${p.paid.toLocaleString()}</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:2px;">납부</div>
+          </div>
+          <div style="text-align:center;">
+            <div style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:15px;color:${p.unpaid>0?'var(--red)':'var(--text3)'};">${p.unpaid.toLocaleString()}</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:2px;">미납</div>
+          </div>
+        </div>
+        <!-- 회차별 내역 -->
+        <div style="display:flex;gap:6px;flex-wrap:wrap;flex-shrink:0;">
+          ${p.details.map(d => `
+          <span title="${d.label}" style="font-size:11px;padding:3px 8px;border-radius:8px;
+            background:${d.paid?'rgba(34,197,94,0.12)':'rgba(239,68,68,0.12)'};
+            color:${d.paid?'var(--green)':'var(--red)'};
+            border:1px solid ${d.paid?'rgba(34,197,94,0.3)':'rgba(239,68,68,0.3)'};
+            white-space:nowrap;">
+            ${d.label.replace('회차','').trim()} ${d.paid?'✓':'⏳'}
+          </span>`).join('')}
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+// ── 추가 벌금 렌더링 ─────────────────────────────────────
+function renderExtraFines() {
+  const container = document.getElementById('fineContent');
+  const data = loadData();
+  const members = Object.keys(data.members || BASE_PLAYERS).sort();
+  const rounds = data.rounds.map(r => r.label);
+  const list = loadExtraFines();
+
+  const totalAmt  = list.reduce((a,x) => a + x.amount, 0);
+  const paidAmt   = list.filter(x=>x.paid).reduce((a,x) => a + x.amount, 0);
+  const unpaidAmt = totalAmt - paidAmt;
+
+  container.innerHTML = `
+  <!-- 요약 -->
+  <div class="fine-summary-grid" style="margin-bottom:24px;">
+    <div class="fine-summary-card" style="border-color:rgba(239,68,68,0.3);">
+      <div class="fine-summary-icon">💸</div>
+      <div class="fine-summary-val" style="color:var(--red);">${totalAmt.toLocaleString()}<span style="font-size:14px;">원</span></div>
+      <div class="fine-summary-label">추가벌금 합계</div>
+    </div>
+    <div class="fine-summary-card" style="border-color:rgba(34,197,94,0.3);">
+      <div class="fine-summary-icon">✅</div>
+      <div class="fine-summary-val" style="color:var(--green);">${paidAmt.toLocaleString()}<span style="font-size:14px;">원</span></div>
+      <div class="fine-summary-label">납부 완료</div>
+    </div>
+    <div class="fine-summary-card">
+      <div class="fine-summary-icon">⏳</div>
+      <div class="fine-summary-val" style="color:${unpaidAmt>0?'var(--red)':'var(--text2)'};">${unpaidAmt.toLocaleString()}<span style="font-size:14px;">원</span></div>
+      <div class="fine-summary-label">미납 합계</div>
+    </div>
+    <div class="fine-summary-card">
+      <div class="fine-summary-icon">📋</div>
+      <div class="fine-summary-val" style="color:var(--accent);">${list.length}<span style="font-size:14px;">건</span></div>
+      <div class="fine-summary-label">총 건수</div>
+    </div>
+  </div>
+
+  <!-- 종류별 금액 안내 -->
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;">
+    ${Object.entries(EXTRA_FINE_TYPES).map(([k,v])=>`
+    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:10px 16px;display:flex;align-items:center;gap:8px;">
+      <span style="font-size:18px;">${v.icon}</span>
+      <div>
+        <div style="font-size:13px;font-weight:700;">${v.label}</div>
+        <div style="font-size:12px;color:var(--red);font-family:'JetBrains Mono',monospace;">${v.amount.toLocaleString()}원</div>
+      </div>
+    </div>`).join('')}
+  </div>
+
+  <!-- 추가 입력 폼 (관리자만) -->
+  ${isAdmin ? `
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:24px;">
+    <div style="font-weight:700;font-size:14px;margin-bottom:14px;">➕ 추가 벌금 등록</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+      <div class="input-group">
+        <label>이름</label>
+        <select id="ef_name" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:14px;outline:none;font-family:inherit;">
+          <option value="">선택</option>
+          ${members.map(m=>`<option>${m}</option>`).join('')}
+        </select>
+      </div>
+      <div class="input-group">
+        <label>회차</label>
+        <select id="ef_round" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:14px;outline:none;font-family:inherit;">
+          <option value="">전체</option>
+          ${rounds.map(r=>`<option>${r}</option>`).join('')}
+        </select>
+      </div>
+      <div class="input-group">
+        <label>종류</label>
+        <select id="ef_type" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:14px;outline:none;font-family:inherit;">
+          ${Object.entries(EXTRA_FINE_TYPES).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label} (${v.amount.toLocaleString()}원)</option>`).join('')}
+        </select>
+      </div>
+      <div class="input-group">
+        <label>메모 (선택)</label>
+        <input type="text" id="ef_memo" placeholder="예) 2월 1회차 지각" style="width:160px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:14px;outline:none;font-family:inherit;">
+      </div>
+      <button class="btn btn-primary" onclick="addExtraFine()">➕ 등록</button>
+    </div>
+  </div>` : ''}
+
+  <!-- 목록 -->
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden;">
+    <div style="padding:14px 20px;border-bottom:1px solid var(--border);font-weight:700;font-size:14px;">📋 추가 벌금 목록</div>
+    ${list.length === 0 ? `<div class="empty"><div class="empty-icon">🎉</div><div class="empty-text">추가 벌금이 없습니다</div></div>` :
+    list.slice().reverse().map(item => {
+      const info = EXTRA_FINE_TYPES[item.type] || { label: item.type, icon: '💸' };
+      return `
+      <div class="fine-row ${item.paid?'paid':''}">
+        <div class="fine-check-wrap">
+          <input type="checkbox" id="efchk_${item.id}" ${item.paid?'checked':''} ${!isAdmin?'disabled':''}
+            onchange="toggleExtraFinePaid('${item.id}')">
+          <label class="fine-check-box" for="efchk_${item.id}" style="${!isAdmin?'cursor:not-allowed;opacity:0.5;':''}"></label>
+        </div>
+        <div style="font-size:20px;">${info.icon}</div>
+        <div style="flex:1;min-width:0;">
+          <div class="fine-name" style="${item.paid?'text-decoration:line-through;color:var(--text3);':''}">${item.name}</div>
+          <div class="fine-detail">${info.label}${item.roundLabel?' · '+item.roundLabel:''}${item.memo?' · '+item.memo:''}</div>
+        </div>
+        <div class="fine-amount" style="${item.paid?'color:var(--text3);text-decoration:line-through;':''}">${item.amount.toLocaleString()}원</div>
+        ${item.paid ? `<span class="fine-paid-badge">✓ 납부완료</span>` : `<span class="fine-unpaid-badge">⏳ 미납</span>`}
+        ${isAdmin ? `<button onclick="deleteExtraFine('${item.id}')" style="background:none;border:1px solid rgba(239,68,68,0.3);color:var(--red);border-radius:6px;padding:2px 8px;font-size:11px;cursor:pointer;">✕</button>` : ''}
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+// ── 상금 렌더링 ──────────────────────────────────────────
+function renderPrizes() {
+  const container = document.getElementById('prizesContent');
+  if(!container) return;
+  const data = loadData();
+  const members = Object.keys(data.members || BASE_PLAYERS).sort();
+  const rounds = data.rounds.map(r => r.label);
+  const list = loadPrizes();
+
+  const totalAmt  = list.reduce((a,x) => a + x.amount, 0);
+  const paidAmt   = list.filter(x=>x.paid).reduce((a,x) => a + x.amount, 0);
+  const unpaidAmt = totalAmt - paidAmt;
+
+  // 선수별 상금 집계
+  const byPlayer = {};
+  list.forEach(p => {
+    if(!byPlayer[p.name]) byPlayer[p.name] = 0;
+    byPlayer[p.name] += p.amount;
+  });
+  const topPlayer = Object.entries(byPlayer).sort((a,b)=>b[1]-a[1])[0];
+
+  container.innerHTML = `
+  <!-- 요약 -->
+  <div class="fine-summary-grid" style="margin-bottom:24px;">
+    <div class="fine-summary-card" style="border-color:rgba(234,179,8,0.4);">
+      <div class="fine-summary-icon">🏆</div>
+      <div class="fine-summary-val" style="color:var(--yellow);">${totalAmt.toLocaleString()}<span style="font-size:14px;">원</span></div>
+      <div class="fine-summary-label">총 상금</div>
+    </div>
+    <div class="fine-summary-card" style="border-color:rgba(34,197,94,0.3);">
+      <div class="fine-summary-icon">✅</div>
+      <div class="fine-summary-val" style="color:var(--green);">${paidAmt.toLocaleString()}<span style="font-size:14px;">원</span></div>
+      <div class="fine-summary-label">지급 완료</div>
+    </div>
+    <div class="fine-summary-card">
+      <div class="fine-summary-icon">⏳</div>
+      <div class="fine-summary-val" style="color:${unpaidAmt>0?'var(--yellow)':'var(--text2)'};">${unpaidAmt.toLocaleString()}<span style="font-size:14px;">원</span></div>
+      <div class="fine-summary-label">미지급</div>
+    </div>
+    <div class="fine-summary-card" style="border-color:rgba(249,115,22,0.3);">
+      <div class="fine-summary-icon">🥇</div>
+      <div class="fine-summary-val" style="color:var(--accent);font-size:18px;">${topPlayer ? topPlayer[0] : '-'}</div>
+      <div class="fine-summary-label">${topPlayer ? topPlayer[1].toLocaleString()+'원 수령' : '상금 없음'}</div>
+    </div>
+  </div>
+
+  <!-- 입력 폼 (관리자만) -->
+  ${isAdmin ? `
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:24px;">
+    <div style="font-weight:700;font-size:14px;margin-bottom:14px;">🏆 상금 등록</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+      <div class="input-group">
+        <label>이름</label>
+        <select id="pr_name" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:14px;outline:none;font-family:inherit;">
+          <option value="">선택</option>
+          ${members.map(m=>`<option>${m}</option>`).join('')}
+        </select>
+      </div>
+      <div class="input-group">
+        <label>회차</label>
+        <select id="pr_round" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:14px;outline:none;font-family:inherit;">
+          <option value="">전체</option>
+          ${rounds.map(r=>`<option>${r}</option>`).join('')}
+        </select>
+      </div>
+      <div class="input-group">
+        <label>금액 (원)</label>
+        <input type="number" id="pr_amount" placeholder="50000" min="0" step="1000"
+          style="width:130px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:14px;outline:none;font-family:'JetBrains Mono',monospace;">
+      </div>
+      <div class="input-group">
+        <label>사유</label>
+        <input type="text" id="pr_reason" placeholder="예) 하이게임 1위, 핸디 1위"
+          style="width:200px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:14px;outline:none;font-family:inherit;">
+      </div>
+      <button class="btn btn-primary" style="background:var(--yellow);color:#000;" onclick="addPrize()">🏆 등록</button>
+    </div>
+  </div>` : ''}
+
+  <!-- 목록 -->
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden;">
+    <div style="padding:14px 20px;border-bottom:1px solid var(--border);font-weight:700;font-size:14px;">🏅 상금 내역</div>
+    ${list.length === 0 ? `<div class="empty"><div class="empty-icon">🏆</div><div class="empty-text">등록된 상금이 없습니다</div></div>` :
+    list.slice().reverse().map((item,i) => `
+      <div class="fine-row ${item.paid?'paid':''}">
+        <div class="fine-check-wrap">
+          <input type="checkbox" id="prchk_${item.id}" ${item.paid?'checked':''} ${!isAdmin?'disabled':''}
+            onchange="togglePrizePaid('${item.id}')">
+          <label class="fine-check-box" for="prchk_${item.id}"
+            style="${!isAdmin?'cursor:not-allowed;opacity:0.5;':''}background:${item.paid?'var(--yellow)':'var(--bg3)'};border-color:${item.paid?'var(--yellow)':'var(--border)'};"></label>
+        </div>
+        <div style="font-size:20px;">🏆</div>
+        <div style="flex:1;min-width:0;">
+          <div class="fine-name" style="${item.paid?'text-decoration:line-through;color:var(--text3);':''}">${item.name}</div>
+          <div class="fine-detail">${item.reason}${item.roundLabel?' · '+item.roundLabel:''}</div>
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:15px;color:${item.paid?'var(--text3)':'var(--yellow)'};${item.paid?'text-decoration:line-through;':''}">
+          ${item.amount.toLocaleString()}원
+        </div>
+        ${item.paid
+          ? `<span style="font-size:11px;padding:3px 10px;border-radius:20px;background:rgba(234,179,8,0.12);color:var(--yellow);border:1px solid rgba(234,179,8,0.3);white-space:nowrap;">✓ 지급완료</span>`
+          : `<span style="font-size:11px;padding:3px 10px;border-radius:20px;background:rgba(234,179,8,0.06);color:var(--text3);border:1px solid var(--border);white-space:nowrap;">⏳ 미지급</span>`}
+        ${isAdmin ? `<button onclick="deletePrize('${item.id}')" style="background:none;border:1px solid rgba(239,68,68,0.3);color:var(--red);border-radius:6px;padding:2px 8px;font-size:11px;cursor:pointer;">✕</button>` : ''}
+      </div>`).join('')}
+  </div>`;
+}
+
+// ── 공지사항 ──────────────────────────────────────────────
+// 구조: { id, title, body, imageDataUrl, createdAt }
+const SPONSOR_KEY = 'bowlingApp_sponsors'; // 찬조 내역
+const DUES_KEY = 'bowlingApp_dues'; // { year, name, months: {1:true,...} }
+const NOTICE_KEY = 'bowlingApp_notices';
+function loadNotices() { return fbLoad('notices', []); }
+function saveNotices(list) { fbSet('notices', list); }
+
+function addNotice() {
+  if(!isAdmin) { toast('관리자만 등록할 수 있습니다.', 'error'); return; }
+  const title = document.getElementById('nt_title').value.trim();
+  const body  = document.getElementById('nt_body').value.trim();
+  const imgEl = document.getElementById('nt_imgPreview');
+  const imageDataUrl = imgEl?.src && imgEl.src !== window.location.href ? imgEl.src : '';
+  if(!title && !body && !imageDataUrl) { toast('제목, 내용, 이미지 중 하나는 입력해주세요.', 'error'); return; }
+  const list = loadNotices();
+  list.unshift({ id: 'nt' + Date.now(), title, body, imageDataUrl, createdAt: new Date().toLocaleDateString('ko-KR') });
+  saveNotices(list);
+  document.getElementById('nt_title').value = '';
+  document.getElementById('nt_body').value = '';
+  if(imgEl) { imgEl.src = ''; imgEl.style.display = 'none'; }
+  renderNotice();
+  toast('공지사항 등록 완료!');
+}
+
+function deleteNotice(id) {
+  if(!isAdmin) return;
+  if(!confirm('이 공지를 삭제할까요?')) return;
+  saveNotices(loadNotices().filter(x => x.id !== id));
+  renderNotice();
+  toast('공지 삭제 완료');
+}
+
+function handleNoticeImage(file) {
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = document.getElementById('nt_imgPreview');
+    if(img) { img.src = e.target.result; img.style.display = 'block'; }
+  };
+  reader.readAsDataURL(file);
+}
+
+function renderNotice() {
+  const container = document.getElementById('noticeContent');
+  if(!container) return;
+  const list = loadNotices();
+
+  container.innerHTML = `
+  ${isAdmin ? `
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;margin-bottom:28px;">
+    <div style="font-weight:700;font-size:15px;margin-bottom:16px;">📝 공지 등록</div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div class="input-group">
+        <label>제목</label>
+        <input type="text" id="nt_title" placeholder="공지 제목"
+          style="width:100%;max-width:500px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:8px;font-size:14px;outline:none;font-family:inherit;">
+      </div>
+      <div class="input-group">
+        <label>내용</label>
+        <textarea id="nt_body" placeholder="공지 내용을 입력하세요..." rows="4"
+          style="width:100%;max-width:600px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:8px;font-size:14px;outline:none;font-family:inherit;resize:vertical;line-height:1.6;"></textarea>
+      </div>
+      <div class="input-group">
+        <label>이미지 첨부 (선택)</label>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <label style="display:inline-flex;align-items:center;gap:8px;background:var(--bg3);border:1px dashed var(--border);border-radius:10px;padding:12px 20px;cursor:pointer;width:fit-content;transition:border-color .2s;"
+            onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+            <span style="font-size:20px;">🖼️</span>
+            <span style="font-size:13px;color:var(--text2);">이미지 선택 (JPG, PNG)</span>
+            <input type="file" accept="image/*" style="display:none;" onchange="handleNoticeImage(this.files[0])">
+          </label>
+          <img id="nt_imgPreview" style="display:none;max-width:400px;max-height:300px;border-radius:12px;border:1px solid var(--border);">
+        </div>
+      </div>
+      <div>
+        <button class="btn btn-primary" onclick="addNotice()">📢 공지 등록</button>
+      </div>
+    </div>
+  </div>` : ''}
+
+  ${list.length === 0 ? `
+  <div class="empty">
+    <div class="empty-icon">📢</div>
+    <div class="empty-text">등록된 공지사항이 없습니다</div>
+  </div>` :
+  list.map((n, i) => `
+  <div style="background:var(--card);border:1px solid ${i===0?'rgba(249,115,22,0.4)':'var(--border)'};border-radius:16px;overflow:hidden;margin-bottom:16px;">
+    <div style="padding:16px 20px;background:${i===0?'rgba(249,115,22,0.06)':'var(--bg3)'};border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        ${i===0?'<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:var(--accent);color:white;font-weight:700;">NEW</span>':''}
+        <div style="font-weight:700;font-size:15px;">${n.title || '(제목 없음)'}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+        <span style="font-size:12px;color:var(--text3);">${n.createdAt}</span>
+        ${isAdmin ? `<button onclick="deleteNotice('${n.id}')" style="background:none;border:1px solid rgba(239,68,68,0.3);color:var(--red);border-radius:6px;padding:2px 8px;font-size:11px;cursor:pointer;">✕ 삭제</button>` : ''}
+      </div>
+    </div>
+    <div style="padding:20px;">
+      ${n.body ? `<div style="font-size:14px;line-height:1.8;color:var(--text2);white-space:pre-wrap;margin-bottom:${n.imageDataUrl?'16px':'0'};">${n.body}</div>` : ''}
+      ${n.imageDataUrl ? `<img src="${n.imageDataUrl}" style="max-width:100%;border-radius:12px;border:1px solid var(--border);">` : ''}
+    </div>
+  </div>`).join('')}
+  `;
+}
+
+
+// ── 회비 관리 ─────────────────────────────────────────
+const DUES_MONTHLY = 30000; // 월 회비 3만원
+const DUES_YEAR = 2026;
+
+// 이미지 기반 초기 납부 데이터
+const INIT_DUES = {
+  '권우섭': {1:true,  2:false, 3:false, 4:false, 5:false, 6:false, 7:false, 8:false, 9:false, 10:false, 11:false, 12:false},
+  '김동현': {1:true,  2:false, 3:true,  4:false, 5:true,  6:false, 7:false, 8:true,  9:true,  10:true,  11:true,  12:false},
+  '김상윤': {1:true,  2:false, 3:false, 4:false, 5:false, 6:false, 7:false, 8:false, 9:false, 10:false, 11:false, 12:false},
+  '김용태': {1:true,  2:false, 3:false, 4:false, 5:false, 6:false, 7:false, 8:false, 9:false, 10:false, 11:false, 12:false},
+  '김주영': {1:false, 2:false, 3:true,  4:false, 5:false, 6:false, 7:false, 8:false, 9:false, 10:false, 11:false, 12:false},
+  '박만수': {1:false, 2:false, 3:false, 4:false, 5:false, 6:false, 7:false, 8:false, 9:false, 10:false, 11:false, 12:false},
+  '박성준': {1:true,  2:true,  3:true,  4:true,  5:true,  6:false, 7:true,  8:true,  9:true,  10:true,  11:true,  12:true },
+  '박종성': {1:true,  2:false, 3:true,  4:false, 5:false, 6:false, 7:true,  8:true,  9:true,  10:true,  11:true,  12:false},
+  '양해성': {1:true,  2:false, 3:true,  4:true,  5:true,  6:false, 7:true,  8:true,  9:true,  10:true,  11:true,  12:false},
+  '오욱현': {1:false, 2:false, 3:false, 4:false, 5:false, 6:false, 7:false, 8:false, 9:false, 10:false, 11:false, 12:false},
+  '오일주': {1:true,  2:true,  3:true,  4:true,  5:true,  6:false, 7:false, 8:true,  9:true,  10:true,  11:true,  12:false},
+  '윤미라': {1:false, 2:false, 3:false, 4:false, 5:false, 6:false, 7:false, 8:false, 9:false, 10:false, 11:false, 12:false},
+  '윤연균': {1:true,  2:true,  3:true,  4:true,  5:true,  6:false, 7:false, 8:true,  9:true,  10:true,  11:true,  12:false},
+  '이구연': {1:false, 2:true,  3:false, 4:false, 5:false, 6:false, 7:false, 8:false, 9:false, 10:false, 11:false, 12:false},
+  '이시은': {1:false, 2:true,  3:true,  4:true,  5:false, 6:false, 7:false, 8:true,  9:true,  10:true,  11:true,  12:false},
+  '이윤경': {1:true,  2:false, 3:true,  4:false, 5:false, 6:false, 7:false, 8:false, 9:false, 10:false, 11:false, 12:false},
+  '이지윤': {1:true,  2:true,  3:true,  4:true,  5:true,  6:false, 7:true,  8:true,  9:true,  10:true,  11:true,  12:true },
+  '장경훈': {1:true,  2:false, 3:true,  4:true,  5:false, 6:false, 7:true,  8:true,  9:true,  10:true,  11:true,  12:true },
+  '장민상': {1:false, 2:false, 3:false, 4:false, 5:false, 6:false, 7:false, 8:false, 9:false, 10:false, 11:false, 12:false},
+  '장은선': {1:true,  2:false, 3:false, 4:false, 5:false, 6:false, 7:false, 8:false, 9:false, 10:false, 11:false, 12:false},
+  '장훈석': {1:false, 2:true,  3:false, 4:false, 5:false, 6:false, 7:false, 8:false, 9:false, 10:false, 11:false, 12:false},
+  '정현수': {1:true,  2:false, 3:false, 4:false, 5:false, 6:false, 7:false, 8:false, 9:false, 10:false, 11:false, 12:false},
+  '조용상': {1:true,  2:false, 3:true,  4:true,  5:true,  6:false, 7:true,  8:true,  9:true,  10:true,  11:true,  12:true },
+  '조정행': {1:false, 2:true,  3:true,  4:true,  5:true,  6:false, 7:true,  8:true,  9:true,  10:true,  11:true,  12:true },
+  '이재필': {1:false, 2:false, 3:false, 4:false, 5:false, 6:false, 7:false, 8:false, 9:false, 10:false, 11:false, 12:false},
+  '김기범': {1:false, 2:false, 3:false, 4:false, 5:false, 6:false, 7:false, 8:false, 9:false, 10:false, 11:false, 12:false},
+};
+
+function loadDues() { return fbLoad('dues', null) || JSON.parse(JSON.stringify(INIT_DUES)); }
+function saveDues(data) { fbSet('dues', data); }
+
+function toggleDues(name, month) {
+  if(!isAdmin) { toast('관리자만 변경할 수 있습니다.', 'error'); return; }
+  const dues = loadDues();
+  if(!dues[name]) dues[name] = {};
+  const cur = dues[name][month];
+  // 순환: 미납(false/undefined) → 납부(true) → 해당없음('N') → 미납
+  if(!cur)          dues[name][month] = true;
+  else if(cur===true) dues[name][month] = 'N';
+  else               dues[name][month] = false;
+  saveDues(dues);
+  renderDues();
+}
+
+function payAllDues(name) {
+  if(!isAdmin) { toast('관리자만 변경할 수 있습니다.', 'error'); return; }
+  const dues = loadDues();
+  if(!dues[name]) dues[name] = {};
+  for(let m = 1; m <= 12; m++) {
+    if(dues[name][m] !== 'N') dues[name][m] = true;
+  }
+  saveDues(dues);
+  renderDues();
+  toast(`${name} 연회비 전액 납부 처리 완료!`);
+}
+
+function clearAllDues(name) {
+  if(!isAdmin) { toast('관리자만 변경할 수 있습니다.', 'error'); return; }
+  if(!confirm(`${name}의 회비 납부 기록을 전부 초기화할까요?`)) return;
+  const dues = loadDues();
+  dues[name] = {};
+  saveDues(dues);
+  renderDues();
+  toast(`${name} 회비 초기화 완료`);
+}
+
+let duesViewTab = 'table'; // 'table' | 'summary'
+function switchDuesTab(tab, btn) {
+  duesViewTab = tab;
+  document.querySelectorAll('#duesTabs .tab').forEach(t => t.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  renderDues();
+}
+
+function renderDues() {
+  const container = document.getElementById('duesContent');
+  if(!container) return;
+  const data = loadData();
+  const dues = loadDues();
+  const members = Object.keys(data.members || BASE_PLAYERS).sort();
+  const now = new Date();
+  const curMonth = now.getFullYear() === DUES_YEAR ? now.getMonth() + 1 : 12;
+  const MONTHS = [1,2,3,4,5,6,7,8,9,10,11,12];
+  const MONTH_LABELS = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+
+  // 전체 통계
+  let totalExpected = 0, totalPaid = 0, totalUnpaid = 0;
+  const memberStats = members.map(name => {
+    const d = dues[name] || {};
+    const paidMonths   = MONTHS.filter(m => d[m] === true);
+    const naMonths     = MONTHS.filter(m => d[m] === 'N');
+    const paidAmt      = paidMonths.length * DUES_MONTHLY;
+    // 해당없음(N) 달은 청구 제외
+    const expectedMonths = MONTHS.filter(m => m <= curMonth && d[m] !== 'N');
+    const expectedAmt  = expectedMonths.length * DUES_MONTHLY;
+    const unpaidAmt    = Math.max(0, expectedAmt - paidAmt);
+    totalExpected += expectedAmt;
+    totalPaid += paidAmt;
+    totalUnpaid += unpaidAmt;
+    return { name, d, paidMonths, paidAmt, expectedAmt, unpaidAmt };
+  });
+
+  const payRate = totalExpected > 0 ? Math.round(totalPaid / totalExpected * 100) : 0;
+
+  container.innerHTML = `
+  <!-- 요약 카드 -->
+  <div class="fine-summary-grid" style="margin-bottom:24px;">
+    <div class="fine-summary-card" style="border-color:rgba(59,130,246,0.4);">
+      <div class="fine-summary-icon">💳</div>
+      <div class="fine-summary-val" style="color:var(--blue);">${(totalExpected/10000).toFixed(0)}<span style="font-size:14px;">만원</span></div>
+      <div class="fine-summary-label">청구 합계 (~${curMonth}월)</div>
+    </div>
+    <div class="fine-summary-card" style="border-color:rgba(34,197,94,0.3);">
+      <div class="fine-summary-icon">✅</div>
+      <div class="fine-summary-val" style="color:var(--green);">${(totalPaid/10000).toFixed(0)}<span style="font-size:14px;">만원</span></div>
+      <div class="fine-summary-label">납부 완료</div>
+    </div>
+    <div class="fine-summary-card" style="border-color:rgba(239,68,68,0.3);">
+      <div class="fine-summary-icon">⏳</div>
+      <div class="fine-summary-val" style="color:var(--red);">${(totalUnpaid/10000).toFixed(0)}<span style="font-size:14px;">만원</span></div>
+      <div class="fine-summary-label">미납 합계</div>
+    </div>
+    <div class="fine-summary-card">
+      <div class="fine-summary-icon">📊</div>
+      <div class="fine-summary-val" style="color:var(--accent);">${payRate}<span style="font-size:14px;">%</span></div>
+      <div class="fine-summary-label">납부율</div>
+    </div>
+  </div>
+
+  <!-- 탭 -->
+  <div class="tabs" id="duesTabs">
+    <button class="tab ${duesViewTab==='table'?'active':''}" onclick="switchDuesTab('table',this)">📅 월별 현황표</button>
+    <button class="tab ${duesViewTab==='summary'?'active':''}" onclick="switchDuesTab('summary',this)">👤 선수별 요약</button>
+  </div>
+
+  ${duesViewTab === 'table' ? renderDuesTable(members, dues, MONTHS, MONTH_LABELS, curMonth) : renderDuesSummary(memberStats, curMonth)}
+  `;
+}
+
+function renderDuesTable(members, dues, MONTHS, MONTH_LABELS, curMonth) {
+  return `
+  <div style="overflow-x:auto;background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden;">
+    <table style="width:100%;border-collapse:collapse;min-width:900px;">
+      <thead>
+        <tr>
+          <th style="padding:12px 16px;text-align:left;font-size:12px;color:var(--text3);background:var(--bg3);border-bottom:1px solid var(--border);position:sticky;left:0;z-index:2;">회원</th>
+          ${MONTH_LABELS.map((ml,i) => `
+          <th style="padding:10px 6px;font-size:11px;color:${i+1<=curMonth?'var(--text2)':'var(--text3)'};background:var(--bg3);border-bottom:1px solid var(--border);text-align:center;min-width:52px;">
+            ${ml}<br><span style="font-size:9px;color:var(--text3);">3만원</span>
+          </th>`).join('')}
+          <th style="padding:10px 8px;font-size:11px;color:var(--text3);background:var(--bg3);border-bottom:1px solid var(--border);text-align:center;min-width:70px;">납부액</th>
+          <th style="padding:10px 8px;font-size:11px;color:var(--text3);background:var(--bg3);border-bottom:1px solid var(--border);text-align:center;min-width:70px;">미납액</th>
+          ${isAdmin ? `<th style="padding:10px 8px;font-size:11px;color:var(--text3);background:var(--bg3);border-bottom:1px solid var(--border);text-align:center;">관리</th>` : ''}
+        </tr>
+      </thead>
+      <tbody>
+        ${members.map((name, ri) => {
+          const d = dues[name] || {};
+          const paidMonths = MONTHS.filter(m => d[m] === true);
+          const paidAmt    = paidMonths.length * 30000;
+          const expectedAmt = MONTHS.filter(m => m <= curMonth && d[m] !== 'N').length * 30000;
+          const unpaidAmt  = Math.max(0, expectedAmt - paidAmt);
+          return `
+          <tr style="background:${ri%2===0?'var(--bg3)':'transparent'}">
+            <td style="padding:10px 16px;font-weight:700;font-size:13px;border-bottom:1px solid rgba(30,45,69,0.4);position:sticky;left:0;background:${ri%2===0?'var(--bg3)':'var(--card)'};z-index:1;">${name}</td>
+            ${MONTHS.map(m => {
+              const val = d[m];
+              const isPast = m <= curMonth;
+              // 상태별 스타일
+              const isNA   = val === 'N';
+              const isPaid = val === true;
+              const isUnpaid = !val && isPast && !isNA;
+              const bdColor = isPaid?'rgba(34,197,94,0.5)':isNA?'var(--border)':isUnpaid?'rgba(239,68,68,0.3)':'var(--border)';
+              const bgColor = isPaid?'rgba(34,197,94,0.15)':isNA?'rgba(100,116,139,0.1)':isUnpaid?'rgba(239,68,68,0.06)':'transparent';
+              const txColor = isPaid?'var(--green)':isNA?'var(--text3)':isUnpaid?'var(--red)':'var(--text3)';
+              const label   = isPaid?'✓':isNA?'⊘':isUnpaid?'✗':'-';
+              const title   = isPaid?'납부완료':isNA?'해당없음 (가입 전)':isUnpaid?'미납':'미도래';
+              return `<td style="padding:6px 4px;text-align:center;border-bottom:1px solid rgba(30,45,69,0.4);">
+                ${isAdmin
+                  ? `<button onclick="toggleDues('${name}',${m})" title="${title}"
+                      style="width:36px;height:28px;border-radius:8px;border:1px solid ${bdColor};
+                      background:${bgColor};color:${txColor};
+                      font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;">
+                      ${label}
+                    </button>`
+                  : `<span title="${title}" style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:24px;border-radius:6px;font-size:12px;font-weight:700;
+                      background:${bgColor};color:${txColor};">
+                      ${label}
+                    </span>`}
+              </td>`;
+            }).join('')}
+            <td style="padding:10px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:13px;color:var(--green);border-bottom:1px solid rgba(30,45,69,0.4);">${(paidAmt/10000).toFixed(0)}만</td>
+            <td style="padding:10px 8px;text-align:center;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:13px;color:${unpaidAmt>0?'var(--red)':'var(--text3)'};border-bottom:1px solid rgba(30,45,69,0.4);">${unpaidAmt>0?(unpaidAmt/10000).toFixed(0)+'만':'-'}</td>
+            ${isAdmin ? `<td style="padding:6px 8px;text-align:center;border-bottom:1px solid rgba(30,45,69,0.4);">
+              <button onclick="payAllDues('${name}')" title="연간 전액납부" style="background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.3);color:var(--green);border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;white-space:nowrap;">전액✓</button>
+            </td>` : ''}
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+  </div>`;
+}
+
+function renderDuesSummary(memberStats, curMonth) {
+  const sorted = [...memberStats].sort((a,b) => b.unpaidAmt - a.unpaidAmt || a.name.localeCompare(b.name));
+  return `
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden;">
+    <div style="padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+      <div style="font-weight:700;font-size:14px;">👤 선수별 납부 현황 (미납 내림차순)</div>
+      <div style="font-size:12px;color:var(--text3);">기준: ~${curMonth}월 / 월 3만원</div>
+    </div>
+    ${sorted.map(s => {
+      const barPaid = s.expectedAmt > 0 ? Math.round(s.paidAmt / s.expectedAmt * 100) : 0;
+      const allPaid = s.unpaidAmt === 0;
+      return `
+      <div class="fine-row ${allPaid?'paid':''}">
+        <div style="width:80px;flex-shrink:0;">
+          <div style="font-weight:700;font-size:14px;">${s.name}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px;">${s.paidMonths.length}개월 납부</div>
+        </div>
+        <div style="flex:1;max-width:200px;">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:4px;">납부율 ${barPaid}%</div>
+          <div style="background:var(--bg3);border-radius:4px;height:6px;overflow:hidden;">
+            <div style="width:${barPaid}%;height:100%;background:${allPaid?'var(--green)':'var(--blue)'};border-radius:4px;transition:width .5s;"></div>
+          </div>
+        </div>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;">
+          <div style="text-align:center;">
+            <div style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:14px;color:var(--green);">${(s.paidAmt/10000).toFixed(0)}만원</div>
+            <div style="font-size:10px;color:var(--text3);">납부</div>
+          </div>
+          <div style="text-align:center;">
+            <div style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:14px;color:${s.unpaidAmt>0?'var(--red)':'var(--text3)'};">${s.unpaidAmt>0?(s.unpaidAmt/10000).toFixed(0)+'만원':'-'}</div>
+            <div style="font-size:10px;color:var(--text3);">미납</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;max-width:220px;">
+          ${[1,2,3,4,5,6,7,8,9,10,11,12].map(m=>{
+            const v=s.d[m];
+            const isNA=v==='N', isPaid=v===true, isUnpaid=!v&&m<=curMonth;
+            return `<span style="font-size:10px;padding:2px 5px;border-radius:5px;
+              background:${isPaid?'rgba(34,197,94,0.15)':isNA?'rgba(100,116,139,0.1)':isUnpaid?'rgba(239,68,68,0.1)':'transparent'};
+              color:${isPaid?'var(--green)':isNA?'var(--text3)':isUnpaid?'var(--red)':'var(--text3)'};
+              border:1px solid ${isPaid?'rgba(34,197,94,0.3)':isNA?'var(--border)':isUnpaid?'rgba(239,68,68,0.2)':'var(--border)'};
+              white-space:nowrap;" title="${isNA?'해당없음':isPaid?'납부':isUnpaid?'미납':'미도래'}">${m}월${isPaid?'✓':isNA?'⊘':''}</span>`;
+          }).join('')}
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+
+// ── 찬조 관리 ──────────────────────────────────────────────
+// 구조: { id, name, amount, reason, date, note }
+function loadSponsors() { return fbLoad('sponsors', []); }
+function saveSponsors(list) { fbSet('sponsors', list); }
+
+function addSponsor() {
+  if(!isAdmin) { toast('관리자만 등록할 수 있습니다.', 'error'); return; }
+  const name   = document.getElementById('sp_name').value.trim();
+  const amount = parseInt(document.getElementById('sp_amount').value.replace(/,/g,'')) || 0;
+  const reason = document.getElementById('sp_reason').value.trim();
+  const date   = document.getElementById('sp_date').value;
+  const note   = document.getElementById('sp_note').value.trim();
+  if(!name)   { toast('이름을 입력하세요.', 'error'); return; }
+  if(!amount) { toast('금액을 입력하세요.', 'error'); return; }
+  const list = loadSponsors();
+  list.unshift({ id:'sp'+Date.now(), name, amount, reason, date: date || new Date().toISOString().slice(0,10), note });
+  saveSponsors(list);
+  document.getElementById('sp_amount').value = '';
+  document.getElementById('sp_reason').value = '';
+  document.getElementById('sp_note').value   = '';
+  renderSponsor();
+  toast(`${name} 찬조 ${amount.toLocaleString()}원 등록 완료!`);
+}
+
+function deleteSponsor(id) {
+  if(!isAdmin) return;
+  if(!confirm('이 찬조 내역을 삭제할까요?')) return;
+  saveSponsors(loadSponsors().filter(x => x.id !== id));
+  renderSponsor();
+  toast('삭제 완료');
+}
+
+function renderSponsor() {
+  const container = document.getElementById('sponsorContent');
+  if(!container) return;
+  const data  = loadData();
+  const list  = loadSponsors();
+  const members = Object.keys(data.members || BASE_PLAYERS).sort();
+
+  // 통계
+  const totalAmt = list.reduce((a,x) => a+x.amount, 0);
+  // 찬조자별 합계
+  const byName = {};
+  list.forEach(s => { byName[s.name] = (byName[s.name]||0) + s.amount; });
+  const topList = Object.entries(byName).sort((a,b)=>b[1]-a[1]);
+
+  container.innerHTML = `
+  <!-- 요약 카드 -->
+  <div class="fine-summary-grid" style="margin-bottom:24px;">
+    <div class="fine-summary-card" style="border-color:rgba(234,179,8,0.4);">
+      <div class="fine-summary-icon">🎁</div>
+      <div class="fine-summary-val" style="color:var(--yellow);">${(totalAmt/10000).toFixed(0)}<span style="font-size:14px;">만원</span></div>
+      <div class="fine-summary-label">총 찬조금액</div>
+    </div>
+    <div class="fine-summary-card" style="border-color:rgba(249,115,22,0.3);">
+      <div class="fine-summary-icon">👥</div>
+      <div class="fine-summary-val" style="color:var(--accent);">${Object.keys(byName).length}<span style="font-size:14px;">명</span></div>
+      <div class="fine-summary-label">찬조 인원</div>
+    </div>
+    <div class="fine-summary-card">
+      <div class="fine-summary-icon">📋</div>
+      <div class="fine-summary-val" style="color:var(--text);">${list.length}<span style="font-size:14px;">건</span></div>
+      <div class="fine-summary-label">총 건수</div>
+    </div>
+    <div class="fine-summary-card" style="border-color:rgba(234,179,8,0.3);">
+      <div class="fine-summary-icon">🥇</div>
+      <div class="fine-summary-val" style="color:var(--yellow);font-size:16px;">${topList[0]?topList[0][0]:'-'}</div>
+      <div class="fine-summary-label">${topList[0]?topList[0][1].toLocaleString()+'원':'찬조 없음'}</div>
+    </div>
+  </div>
+
+  <!-- 찬조자별 누계 바 -->
+  ${topList.length > 0 ? `
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:20px;">
+    <div style="font-weight:700;font-size:14px;margin-bottom:14px;">🏅 찬조자별 누계</div>
+    ${topList.map(([name, amt], i) => {
+      const pct = Math.round(amt / topList[0][1] * 100);
+      const colors = ['var(--yellow)','var(--text2)','#b45309','var(--accent)'];
+      const c = colors[Math.min(i, colors.length-1)];
+      return `
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
+        <div style="width:20px;height:20px;border-radius:50%;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:${c};flex-shrink:0;">${i+1}</div>
+        <div style="width:70px;flex-shrink:0;font-weight:700;font-size:13px;">${name}</div>
+        <div style="flex:1;background:var(--bg3);border-radius:4px;height:8px;overflow:hidden;">
+          <div style="width:${pct}%;height:100%;background:${c};border-radius:4px;transition:width .5s;"></div>
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:13px;color:${c};width:80px;text-align:right;">${amt.toLocaleString()}원</div>
+      </div>`;
+    }).join('')}
+  </div>` : ''}
+
+  <!-- 등록 폼 (관리자) -->
+  ${isAdmin ? `
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:20px;">
+    <div style="font-weight:700;font-size:14px;margin-bottom:14px;">🎁 찬조 등록</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+      <div class="input-group">
+        <label>이름</label>
+        <input type="text" id="sp_name" list="sp_name_list" placeholder="홍길동"
+          style="width:110px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:14px;outline:none;font-family:inherit;">
+        <datalist id="sp_name_list">${members.map(m=>`<option value="${m}">`).join('')}</datalist>
+      </div>
+      <div class="input-group">
+        <label>금액 (원)</label>
+        <input type="number" id="sp_amount" placeholder="50000" min="0" step="1000"
+          style="width:130px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:14px;outline:none;font-family:'JetBrains Mono',monospace;">
+      </div>
+      <div class="input-group">
+        <label>사유</label>
+        <input type="text" id="sp_reason" placeholder="예) 창립기념 찬조"
+          style="width:180px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:14px;outline:none;font-family:inherit;">
+      </div>
+      <div class="input-group">
+        <label>날짜</label>
+        <input type="date" id="sp_date" value="${new Date().toISOString().slice(0,10)}"
+          style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:14px;outline:none;font-family:inherit;">
+      </div>
+      <div class="input-group">
+        <label>메모 (선택)</label>
+        <input type="text" id="sp_note" placeholder="추가 메모"
+          style="width:150px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:14px;outline:none;font-family:inherit;">
+      </div>
+      <button class="btn btn-primary" style="background:var(--yellow);color:#000;font-weight:700;" onclick="addSponsor()">🎁 등록</button>
+    </div>
+  </div>` : ''}
+
+  <!-- 내역 목록 -->
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden;">
+    <div style="padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+      <div style="font-weight:700;font-size:14px;">📋 찬조 내역 (최신순)</div>
+      <div style="font-size:12px;color:var(--text3);">총 ${list.length}건 · ${totalAmt.toLocaleString()}원</div>
+    </div>
+    ${list.length === 0
+      ? `<div class="empty"><div class="empty-icon">🎁</div><div class="empty-text">등록된 찬조 내역이 없습니다</div></div>`
+      : list.map(s => `
+      <div class="fine-row">
+        <div style="font-size:22px;">🎁</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:700;font-size:14px;">${s.name}</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:2px;">
+            ${s.reason||'찬조'}${s.note?' · '+s.note:''} · ${s.date}
+          </div>
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:16px;color:var(--yellow);">
+          ${s.amount.toLocaleString()}원
+        </div>
+        ${isAdmin ? `<button onclick="deleteSponsor('${s.id}')"
+          style="background:none;border:1px solid rgba(239,68,68,0.3);color:var(--red);border-radius:6px;padding:2px 8px;font-size:11px;cursor:pointer;">✕</button>` : ''}
+      </div>`).join('')}
+  </div>`;
+}
+
+// ── 회원관리 ──────────────────────────────────────────────
+function renderMemberList() {
+  const data = loadData();
+  const members = data.members || {...BASE_PLAYERS};
+  const stats = getPlayerStats();
+  const names = Object.keys(members).sort();
+  document.getElementById('memberCount').textContent = `총 ${names.length}명`;
+  const container = document.getElementById('memberListTable');
+  container.innerHTML = names.map((name, i) => {
+    const baseAvg = members[name] || 0;
+    const s = stats[name];
+    const attend = s ? s.attend : 0;
+    const curAvg = s && s.avg ? Math.round(s.avg) : '-';
+    const handi = calcHandi(s?.avg || baseAvg);
+    return `
+    <div class="member-row">
+      <div class="member-num">${i+1}</div>
+      <div class="member-name-cell">
+        ${name}
+        <div style="font-size:11px;color:var(--text3);margin-top:2px;">누적에버 ${curAvg} · 핸디 ${handi} · ${attend}회 출전</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <!-- 성별 토글 -->
+        <div style="display:flex;gap:4px;">
+          <button onclick="saveGender('${name}','M')"
+            style="padding:4px 10px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:1px solid ${!isFemale(name)?'var(--blue)':'var(--border)'};background:${!isFemale(name)?'rgba(59,130,246,0.15)':'var(--bg3)'};color:${!isFemale(name)?'var(--blue)':'var(--text3)'};">♂ 남</button>
+          <button onclick="saveGender('${name}','F')"
+            style="padding:4px 10px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:1px solid ${isFemale(name)?'#f472b6':'var(--border)'};background:${isFemale(name)?'rgba(244,114,182,0.15)':'var(--bg3)'};color:${isFemale(name)?'#f472b6':'var(--text3)'};">♀ 여</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="font-size:12px;color:var(--text3);">기준에버</span>
+          <input type="number" class="member-avg-input" value="${baseAvg}"
+            id="avgInput_${name}" min="0" max="300"
+            onkeydown="if(event.key==='Enter')saveMemberAvg('${name}')">
+          <button class="member-save-btn" onclick="saveMemberAvg('${name}')">저장</button>
+        </div>
+        <button class="member-del-btn" onclick="deleteMember('${name}')">🗑 삭제</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function addMember() {
+  if(!isAdmin) { toast('관리자만 추가할 수 있습니다.', 'error'); return; }
+  const name = document.getElementById('newMemberName').value.trim();
+  const avg = parseInt(document.getElementById('newMemberAvg').value) || 0;
+  if(!name) { toast('이름을 입력하세요.', 'error'); return; }
+  const data = loadData();
+  if(!data.members) data.members = {};
+  if(data.members.hasOwnProperty(name)) { toast(`${name}은 이미 등록된 회원입니다.`, 'error'); return; }
+  data.members[name] = avg;
+  saveData(data);
+  document.getElementById('newMemberName').value = '';
+  document.getElementById('newMemberAvg').value = '';
+  refreshAll();
+  renderMemberList();
+  toast(`${name} 회원 추가 완료!`);
+}
+
+function addMember2() {
+  if(!isAdmin) { toast('관리자만 추가할 수 있습니다.', 'error'); return; }
+  const name = document.getElementById('newMemberName2').value.trim();
+  const avg  = parseInt(document.getElementById('newMemberAvg2').value) || 0;
+  if(!name) { toast('이름을 입력하세요.', 'error'); return; }
+  const data = loadData();
+  if(!data.members) data.members = {};
+  if(data.members.hasOwnProperty(name)) { toast(`${name}은 이미 등록된 회원입니다.`, 'error'); return; }
+  data.members[name] = avg;
+  saveData(data);
+  const gender2 = document.getElementById('newMemberGender2')?.value || 'M';
+  const genders2 = loadGenders(); genders2[name] = gender2; saveGenders(genders2);
+  document.getElementById('newMemberName2').value = '';
+  document.getElementById('newMemberAvg2').value = '';
+  renderMemberList();
+  renderPlayers();
+  if(currentRankTab) renderRanking(currentRankTab);
+  toast(`${name} 회원 추가 완료!`);
+}
+
+function saveMemberAvg(name) {
+  if(!isAdmin) { toast('관리자만 수정할 수 있습니다.', 'error'); return; }
+  const input = document.getElementById(`avgInput_${name}`);
+  const avg = parseInt(input.value) || 0;
+  const data = loadData();
+  if(!data.members) data.members = {};
+  data.members[name] = avg;
+  saveData(data);
+  renderMemberList();
+  renderPlayers();
+  if(currentRankTab) renderRanking(currentRankTab);
+  toast(`${name} 기준에버 ${avg}로 저장 완료!`);
+}
+
+function deleteMember(name) {
+  if(!isAdmin) { toast('관리자만 삭제할 수 있습니다.', 'error'); return; }
+  const data = loadData();
+  const hasScores = data.rounds.some(r => r.scores.some(sc => sc.name === name));
+  const msg = hasScores
+    ? `[${name}] 회원을 삭제할까요?\n⚠️ 해당 회원의 점수 기록도 함께 삭제됩니다.`
+    : `[${name}] 회원을 삭제할까요?`;
+  if(!confirm(msg)) return;
+  if(data.members) delete data.members[name];
+  for(const round of data.rounds) {
+    round.scores = round.scores.filter(sc => sc.name !== name);
+  }
+  saveData(data);
+  renderMemberList();
+  refreshAll();
+  toast(`${name} 회원 삭제 완료`);
+}
+
+function deletePlayerFromRound(roundId, name) {
+  if(!isAdmin) { toast('관리자만 삭제할 수 있습니다.', 'error'); return; }
+  if(!confirm(`[${name}] 선수의 이번 회차 점수를 삭제할까요?`)) return;
+  const data = loadData();
+  const round = data.rounds.find(r => r.id === roundId);
+  if(!round) return;
+  round.scores = round.scores.filter(sc => sc.name !== name);
+  saveData(data);
+  refreshAll();
+  toast(`${name} 점수 삭제 완료`);
+}
+
+function refreshAll() { refreshAllViews(); }
+function refreshAllViews() {
+  renderRounds();
+  renderPlayers();
+  if(currentRankTab) renderRanking(currentRankTab);
+  // 현재 활성 섹션만 갱신
+  const active = document.querySelector('.section.active');
+  if(!active) return;
+  const id = active.id;
+  if(id==='fines')   renderFines();
+  if(id==='prizes')  renderPrizes();
+  if(id==='dues')    renderDues();
+  if(id==='sponsor') renderSponsor();
+  if(id==='notice')  renderNotice();
+}
+
+// ── 엑셀 다운로드 ─────────────────────────────────────────
+function exportExcel() {
+  const stats = getPlayerStats();
+  const { finesByPlayer } = getAllFines();
+  const rows = [['연번','이름','기준에버','누적에버','핸디','출전횟수','총핀수','최고총점','누적벌금','납부완료','미납금액']];
+  let idx = 1;
+  Object.values(stats).sort((a,b)=>b.avg-a.avg).forEach(s => {
+    const fp = finesByPlayer[s.name];
+    rows.push([idx++, s.name, BASE_PLAYERS[s.name]||'-', Math.round(s.avg), s.handi, s.attend, s.totalPins, s.bestTotal,
+      fp ? fp.total : 0, fp ? fp.paid : 0, fp ? fp.unpaid : 0]);
+  });
+  const csv = rows.map(r => r.join(',')).join('\n');
+  const bom = '\uFEFF';
+  const blob = new Blob([bom+csv], {type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `볼링_순위표_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  toast('엑셀(CSV) 다운로드 완료!');
+}
+
+// ── 데이터 메뉴 ─────────────────────────────────────────────
+function toggleDataMenu() {
+  const menu = document.getElementById('dataMenu');
+  menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+}
+// 메뉴 바깥 클릭 시 닫기
+document.addEventListener('click', e => {
+  const menu = document.getElementById('dataMenu');
+  const btn  = document.getElementById('dataMenuBtn');
+  if(menu && btn && !menu.contains(e.target) && !btn.contains(e.target)) {
+    menu.style.display = 'none';
+  }
+});
+
+function exportHTMLSnapshot() {
+  document.getElementById('dataMenu').style.display = 'none';
+
+  // 모든 localStorage 데이터 수집
+  const snapshot = {
+    bowlingApp_data:         localStorage.getItem('bowlingApp_data'),
+    bowlingApp_finePayments: localStorage.getItem('bowlingApp_finePayments'),
+    bowlingApp_extraFines:   localStorage.getItem('bowlingApp_extraFines'),
+    bowlingApp_prizes:       localStorage.getItem('bowlingApp_prizes'),
+    bowlingApp_dues:         localStorage.getItem('bowlingApp_dues'),
+    bowlingApp_genders:      localStorage.getItem('bowlingApp_genders'),
+    bowlingApp_notices:      localStorage.getItem('bowlingApp_notices'),
+    bowlingApp_sponsors:     localStorage.getItem('bowlingApp_sponsors'),
+  };
+
+  // 현재 HTML 소스 가져오기
+  const html = document.documentElement.outerHTML;
+
+  // <head> 안에 데이터 복원 스크립트 삽입
+  const restoreScript = `<script id="__snapshot_restore__">
+(function(){
+  const snap = ${JSON.stringify(snapshot)};
+  for(const [k,v] of Object.entries(snap)) {
+    if(v !== null) try { localStorage.setItem(k, v); } catch(e) {}
+  }
+  const el = document.getElementById('__snapshot_restore__');
+  if(el) el.remove();
+})();
+<\/script>`;
+
+  const injected = html.replace('</head>', restoreScript + '</head>');
+
+  const blob = new Blob([injected], { type: 'text/html;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  const date = new Date().toISOString().slice(0,10);
+  a.download = `볼링정기전_${date}.html`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast('HTML 스냅샷 저장 완료! Firebase 연동 후에는 URL 공유만으로도 충분합니다 🎳');
+}
+
+// ── Firebase 초기 데이터 로드 ────────────────────────────────
+async function fetchFirebaseInitial() {
+  if(!window._fb) return;
+  const { db, ref, get } = window._fb;
+  const statusEl = document.getElementById('fbStatus');
+  try {
+    // 연결 확인
+    const snap = await get(ref(db, 'data'));
+    updateConnectionStatus(true);
+    if(snap.exists()) {
+      window._fb_cache_data = snap.val();
+      // localStorage 캐시
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(snap.val())); } catch(e){}
+    } else {
+      // DB가 비어있으면 현재 localStorage 데이터를 Firebase에 업로드
+      const local = loadData();
+      if(local && local.rounds && local.rounds.length > 0) {
+        await window._fb.set(ref(db, 'data'), local);
+        toast('로컬 데이터를 Firebase에 업로드했습니다 ✓');
+      }
+    }
+    // 첫 로드 후 화면 갱신
+    refreshAllViews();
+  } catch(e) {
+    updateConnectionStatus(false);
+    console.warn('Firebase 연결 실패, 로컬 모드로 실행:', e);
+    if(statusEl) statusEl.title = e.message;
+  }
+}
+
+// ── 앱 초기화 ─────────────────────────────────────────────
+initDataIfEmpty();
+document.getElementById('matchDate').value = new Date().toISOString().slice(0,10);
+// 기본 순위 렌더
+renderRanking('avg');
+renderRounds();
+renderPlayers();
+renderFines();
+renderPrizes();
+renderNotice();
+renderSponsor();
+
+// Firebase 초기 데이터 가져오기 (설정 후 활성화)
+if(window._fbReady) {
+  fetchFirebaseInitial();
+} else {
+  window.addEventListener('load', () => {
+    setTimeout(() => { if(window._fbReady) fetchFirebaseInitial(); }, 1000);
+  });
+}
+</script>
+
+<!-- 관리자 로그인 모달 -->
+<div class="modal-overlay" id="adminModal">
+  <div class="modal">
+    <div class="modal-icon">🔐</div>
+    <div class="modal-title">관리자 로그인</div>
+    <div class="modal-sub">관리자 비밀번호를 입력하세요</div>
+    <input type="password" class="modal-input" id="adminPwInput"
+      placeholder="••••••" maxlength="20"
+      onkeydown="if(event.key==='Enter')checkAdminPw()">
+    <div id="adminPwError" style="font-size:12px;color:var(--red);text-align:center;margin-bottom:12px;min-height:16px;"></div>
+    <div class="modal-btns">
+      <button class="btn btn-secondary" onclick="closeAdminModal()">취소</button>
+      <button class="btn btn-primary" onclick="checkAdminPw()">🔓 로그인</button>
+    </div>
+  </div>
+</div>
+
+<!-- 관리자 로그아웃 확인 모달 -->
+<div class="modal-overlay" id="logoutModal">
+  <div class="modal">
+    <div class="modal-icon">👋</div>
+    <div class="modal-title">관리자 로그아웃</div>
+    <div class="modal-sub">관리자 모드를 종료할까요?</div>
+    <div class="modal-btns" style="margin-top:8px;">
+      <button class="btn btn-secondary" onclick="closeLogoutModal()">취소</button>
+      <button class="btn btn-primary" onclick="doLogout()">로그아웃</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -4257,6 +4257,7 @@ function buildTeams() {
 
   function snakeAssign(arr) {
     const sorted = [...arr].sort((a,b) => b.avg - a.avg);
+    // 스네이크 드래프트
     let idx = 0, dir = 1;
     sorted.forEach((player, i) => {
       teams[idx].members.push(player);
@@ -4265,6 +4266,22 @@ function buildTeams() {
       else if(idx === 0 && i > 0) dir = 1;
       idx += dir;
     });
+    // 인원 균등: max-min 차이가 1 이하가 될 때까지 반복
+    const maxAllowed = Math.ceil(sorted.length / teamCount);
+    const minAllowed = Math.floor(sorted.length / teamCount);
+    let changed = true;
+    while(changed) {
+      changed = false;
+      const maxTeam = teams.reduce((a,b) => a.members.length >= b.members.length ? a : b);
+      const minTeam = teams.reduce((a,b) => a.members.length <= b.members.length ? a : b);
+      if(maxTeam.members.length - minTeam.members.length > 1) {
+        const moved = maxTeam.members.pop();
+        maxTeam.totalAvg -= moved.avg;
+        minTeam.members.push(moved);
+        minTeam.totalAvg += moved.avg;
+        changed = true;
+      }
+    }
   }
 
   if(method === 'ab_snake') {
@@ -4290,6 +4307,18 @@ function buildTeams() {
       else if(idx === 0 && i > 0) dir = 1;
       idx += dir;
     });
+    // 인원 재균등
+    const totalCount = aPlayers.length + bPlayers.length;
+    const maxPer = Math.ceil(totalCount / teamCount);
+    for(let t = 0; t < teamCount; t++) {
+      while(teams[t].members.length > maxPer) {
+        const moved = teams[t].members.pop();
+        teams[t].totalAvg -= moved.avg;
+        const minTeam = teams.reduce((a,b) => a.members.length <= b.members.length ? a : b);
+        minTeam.members.push(moved);
+        minTeam.totalAvg += moved.avg;
+      }
+    }
   } else if(method === 'snake') {
     snakeAssign(players);
   } else {

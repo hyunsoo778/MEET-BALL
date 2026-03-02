@@ -1050,8 +1050,6 @@ function saveData(data) {
 
 // 벌금 납부 정보 (roundId_playerName → true/false)
 function loadFinePayments() { return fbLoad('finePayments', {}); }
-  return {};
-}
 
 function saveFinePayments(payments) { fbSet('finePayments', payments); }
 }
@@ -1106,8 +1104,6 @@ const EXTRA_FINE_TYPES = {
 };
 
 function loadExtraFines() { return fbLoad('extraFines', []); }
-  return [];
-}
 function saveExtraFines(list) { fbSet('extraFines', list); }
 }
 
@@ -1153,8 +1149,6 @@ function deleteExtraFine(id) {
 // ── 상금 ─────────────────────────────────────────────────
 // 구조: { id, roundLabel, name, amount, reason, date }
 function loadPrizes() { return fbLoad('prizes', []); }
-  return [];
-}
 function savePrizes(list) { fbSet('prizes', list); }
 }
 
@@ -2722,8 +2716,6 @@ function renderDuesSummary(memberStats, curMonth) {
 // ── 찬조 관리 ──────────────────────────────────────────────
 // 구조: { id, name, amount, reason, date, note }
 function loadSponsors() { return fbLoad('sponsors', []); }
-  return [];
-}
 function saveSponsors(list) { fbSet('sponsors', list); }
 }
 

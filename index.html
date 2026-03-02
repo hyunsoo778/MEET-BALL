@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🎳 볼링 정기전 관리 v2.0 (버그수정)</title>
+<title>🎳 Meet Ball</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Bebas+Neue&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -577,7 +577,7 @@
 <body>
 
 <header>
-  <div class="logo">🎳 BOWLING <span>정기전 관리</span></div>
+  <div class="logo">🎳 MEET BALL</div>
   <nav>
     <button class="nav-btn" onclick="showSection('notice',this)">📢 공지</button>
     <button class="nav-btn active" onclick="showSection('upload',this)">📷 점수입력</button>
@@ -3413,6 +3413,28 @@ function castVote(pollId, name, choice) {
   renderVote();
   const labels = { yes:'✅ 참가', no:'❌ 불참', maybe:'🤔 미정' };
   toast(`${name} → ${labels[choice]} 선택 완료!`);
+
+  // 찬성(yes) 선택 시 팀편성으로 이동 + 해당 멤버 자동 체크
+  if(choice === 'yes') {
+    setTimeout(() => {
+      const tbBtn = [...document.querySelectorAll('.nav-btn')]
+        .find(b => b.textContent.includes('팀 편성'));
+      showSection('teambuilder', tbBtn || null);
+      setTimeout(() => {
+        const chk = document.getElementById(`tb_${name}`);
+        if(chk && !chk.checked) {
+          chk.checked = true;
+          chk.dispatchEvent(new Event('change'));
+        }
+        // 체크박스 라벨 하이라이트
+        const lbl = document.getElementById(`tb_label_${name}`);
+        if(lbl) {
+          lbl.style.borderColor = '#22c55e';
+          lbl.style.background = 'rgba(34,197,94,0.1)';
+        }
+      }, 100);
+    }, 500);
+  }
 }
 
 function closePoll(pollId) {

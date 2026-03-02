@@ -1049,11 +1049,11 @@ function saveData(data) {
 }
 
 // 벌금 납부 정보 (roundId_playerName → true/false)
-function loadFinePayments() { return fbLoad('finePayments', []); } catch(e) {}
+function loadFinePayments() { return fbLoad('finePayments', {}); }
   return {};
 }
 
-function saveFinePayments(payments) { fbSet('finePayments', payments); } catch(e) { console.error('벌금저장 실패', e); }
+function saveFinePayments(payments) { fbSet('finePayments', payments); }
 }
 
 function toggleFinePayment(roundId, name) {
@@ -1072,13 +1072,14 @@ function isFinePayment(roundId, name) {
 
 // ── 성별 관리 ─────────────────────────────────────────
 const GENDER_KEY = 'bowlingApp_genders';
-function loadGenders() { return fbLoad('genders', null); } catch(e) {}
-  // 기본값: FEMALE_PLAYERS 기준으로 초기화
+function loadGenders() {
+  const cached = fbLoad('genders', null);
+  if(cached) return cached;
   const g = {};
   for(const name in BASE_PLAYERS) g[name] = FEMALE_PLAYERS.has(name) ? 'F' : 'M';
   return g;
 }
-function saveGenders(g) { fbSet('genders', g); } catch(e) {}
+function saveGenders(g) { fbSet('genders', g); }
 }
 function isFemale(name) {
   const g = loadGenders();
@@ -1104,10 +1105,10 @@ const EXTRA_FINE_TYPES = {
   absent: { label: '무단불참/늦참',   amount: 10000, icon: '⏰' },
 };
 
-function loadExtraFines() { return fbLoad('extraFines', []); } catch(e) {}
+function loadExtraFines() { return fbLoad('extraFines', []); }
   return [];
 }
-function saveExtraFines(list) { fbSet('extraFines', list); } catch(e) {}
+function saveExtraFines(list) { fbSet('extraFines', list); }
 }
 
 function addExtraFine() {
@@ -1151,10 +1152,10 @@ function deleteExtraFine(id) {
 
 // ── 상금 ─────────────────────────────────────────────────
 // 구조: { id, roundLabel, name, amount, reason, date }
-function loadPrizes() { return fbLoad('prizes', []); } catch(e) {}
+function loadPrizes() { return fbLoad('prizes', []); }
   return [];
 }
-function savePrizes(list) { fbSet('prizes', list); } catch(e) {}
+function savePrizes(list) { fbSet('prizes', list); }
 }
 
 function addPrize() {
@@ -2490,11 +2491,8 @@ const INIT_DUES = {
   '김기범': {1:false, 2:false, 3:false, 4:false, 5:false, 6:false, 7:false, 8:false, 9:false, 10:false, 11:false, 12:false},
 };
 
-function loadDues() { return fbLoad('dues', null); } catch(e) {}
-  // 초기 데이터 반환
-  return JSON.parse(JSON.stringify(INIT_DUES));
-}
-function saveDues(data) { fbSet('dues', data); } catch(e) {}
+function loadDues() { return fbLoad('dues', null) || JSON.parse(JSON.stringify(INIT_DUES)); }
+function saveDues(data) { fbSet('dues', data); }
 }
 
 function toggleDues(name, month) {
@@ -2723,10 +2721,10 @@ function renderDuesSummary(memberStats, curMonth) {
 
 // ── 찬조 관리 ──────────────────────────────────────────────
 // 구조: { id, name, amount, reason, date, note }
-function loadSponsors() { return fbLoad('sponsors', []); } catch(e) {}
+function loadSponsors() { return fbLoad('sponsors', []); }
   return [];
 }
-function saveSponsors(list) { fbSet('sponsors', list); } catch(e) {}
+function saveSponsors(list) { fbSet('sponsors', list); }
 }
 
 function addSponsor() {

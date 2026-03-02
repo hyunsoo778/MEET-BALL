@@ -506,55 +506,69 @@
   .member-del-btn:hover { background:rgba(239,68,68,0.15); }
 </style>
 
-<!-- ══ Firebase Realtime Database SDK ══ -->
+<!-- Firebase Realtime Database -->
 <script type="module">
   import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
   import { getDatabase, ref, set, get, onValue }
     from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
 
-  const firebaseConfig = {
-    apiKey:            "AIzaSyA6-nchOWQ7MEBThnGTnZjko-APerPvWmk",
-    authDomain:        "meet-ball-3191d.firebaseapp.com",
-    databaseURL:       "https://meet-ball-3191d-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId:         "meet-ball-3191d",
-    storageBucket:     "meet-ball-3191d.firebasestorage.app",
-    messagingSenderId: "969779870898",
-    appId:             "1:969779870898:web:3a1a65583ea99a94569dab"
-  };
-
-  const app = initializeApp(firebaseConfig);
-  const db  = getDatabase(app);
+  const app = initializeApp({
+    apiKey: "AIzaSyA6-nchOWQ7MEBThnGTnZjko-APerPvWmk",
+    databaseURL: "https://meet-ball-3191d-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "meet-ball-3191d",
+    appId: "1:969779870898:web:3a1a65583ea99a94569dab"
+  });
+  const db = getDatabase(app);
   window._fb = { db, ref, set, get, onValue };
-  window._fbReady = true;
 
   const KEYS = ['data','finePayments','extraFines','prizes','dues','genders','notices','sponsors'];
 
-  function startRealtimeSync() {
+  function startSync() {
     const statusEl = document.getElementById('fbStatus');
-    let firstDone = false;
+    let connected = false;
     KEYS.forEach(key => {
-      onValue(ref(db, key), snapshot => {
-        if(!firstDone) {
-          firstDone = true;
-          if(statusEl) { statusEl.textContent = '🟢 실시간 연결됨'; statusEl.style.color = '#22c55e'; }
+      onValue(ref(db, key), snap => {
+        if (!connected) {
+          connected = true;
+          if (statusEl) { statusEl.textContent = '🟢 연결됨'; statusEl.style.color = '#22c55e'; }
         }
-        const val = snapshot.val();
-        if(val !== null) {
-          try { localStorage.setItem('bowlingApp_' + key, JSON.stringify(val)); } catch(e){}
-          window['_fb_cache_' + key] = val;
+        const val = snap.val();
+        if (val !== null) {
+          // localStorage에도 동기화 (기존 load 함수가 읽는 key로)
+          const lsKey = {
+            data: 'bowlingApp_data',
+            finePayments: 'bowlingApp_finePayments',
+            extraFines: 'bowlingApp_extraFines',
+            prizes: 'bowlingApp_prizes',
+            dues: 'bowlingApp_dues',
+            genders: 'bowlingApp_genders',
+            notices: 'bowlingApp_notices',
+            sponsors: 'bowlingApp_sponsors',
+          }[key];
+          if (lsKey) {
+            try { localStorage.setItem(lsKey, JSON.stringify(val)); } catch(e) {}
+          }
         }
-        setTimeout(() => { if(typeof window.refreshAllViews === 'function') window.refreshAllViews(); }, 0);
+        // 화면 갱신
+        if (typeof window.refreshAllViews === 'function') window.refreshAllViews();
       }, err => {
-        if(statusEl) { statusEl.textContent = '🔴 연결 실패'; statusEl.style.color = '#ef4444'; }
+        if (statusEl) { statusEl.textContent = '🔴 연결실패'; statusEl.style.color = '#ef4444'; }
       });
     });
   }
 
   window.addEventListener('load', () => {
     const statusEl = document.getElementById('fbStatus');
-    if(statusEl) statusEl.textContent = '🟡 연결 중...';
-    setTimeout(startRealtimeSync, 300);
+    if (statusEl) statusEl.textContent = '🟡 연결 중...';
+    startSync();
   });
+
+  // 전역 Firebase 저장 함수
+  window.fbSave = function(key, val) {
+    if (!window._fb) return;
+    window._fb.set(window._fb.ref(window._fb.db, key), val)
+      .catch(e => console.warn('Firebase 저장 실패:', e));
+  };
 </script>
 </head>
 <body>
@@ -588,7 +602,6 @@
     </div>
     <div style="width:1px;background:var(--border);margin:0 8px;"></div>
     <div id="adminBadge" class="admin-badge" onclick="toggleAdmin()">🔒 관리자</div>
-      <div id="fbStatus" style="font-size:11px;color:#64748b;padding:4px 10px;border-radius:8px;background:#1a2236;border:1px solid #1e2d45;white-space:nowrap;margin-left:8px;">⚪ 연결 중...</div>
   </nav>
 </header>
 
@@ -610,6 +623,7 @@
     <div style="font-size:16px;font-weight:600;color:var(--text2);margin-bottom:8px;">관리자 전용 기능입니다</div>
     <div style="font-size:13px;margin-bottom:24px;">오른쪽 상단 관리자 버튼을 눌러 로그인하세요</div>
     <button class="btn btn-secondary" onclick="toggleAdmin()">🔑 관리자 로그인</button>
+<span id="fbStatus" style="font-size:11px;padding:4px 10px;border-radius:8px;background:#1a2236;border:1px solid #1e2d45;color:#64748b;margin-left:8px;">⚪ 연결 중...</span>
   </div>
   <div id="uploadContent" style="display:none;">
 
@@ -856,39 +870,6 @@
 <div class="toast" id="toast"></div>
 
 <script>
-
-// ── Firebase 헬퍼 함수 ──────────────────────────────────
-function fbSet(key, val) {
-  // localStorage + 메모리 캐시
-  try { localStorage.setItem('bowlingApp_' + key, JSON.stringify(val)); } catch(e){}
-  window['_fb_cache_' + key] = val;
-  // Firebase SDK가 로드될 때까지 최대 3초 대기 후 저장
-  function doSave(retries) {
-    if(window._fb && window._fb.set) {
-      window._fb.set(window._fb.ref(window._fb.db, key), val)
-        .then(() => console.log('✅ Firebase 저장:', key))
-        .catch(e => {
-          console.error('Firebase 저장 실패:', e.message);
-          toast('⚠️ Firebase 저장 실패 (DB 규칙 확인 필요)', 'error');
-        });
-    } else if(retries > 0) {
-      setTimeout(() => doSave(retries - 1), 500);
-    } else {
-      console.warn('Firebase SDK 미로드 - 로컬에만 저장');
-    }
-  }
-  doSave(6);
-}
-
-function fbLoad(key, defaultVal) {
-  if(window['_fb_cache_' + key] !== undefined) return window['_fb_cache_' + key];
-  try {
-    const raw = localStorage.getItem('bowlingApp_' + key);
-    if(raw) return JSON.parse(raw);
-  } catch(e) {}
-  return defaultVal;
-}
-
 /*
  * ════════════════════════════════════════════════════════════
  *  🎳 볼링 정기전 관리 앱 v2.0 - 버그 수정 버전
@@ -916,27 +897,6 @@ function fbLoad(key, defaultVal) {
 const ADMIN_PW = '6950';
 let isAdmin = false;
 
-// 새로고침 후 관리자 세션 복원
-(function restoreAdminSession() {
-  if(sessionStorage.getItem('bowlingAdmin') === 'true') {
-    isAdmin = true;
-    // DOM 로드 후 UI 업데이트
-    document.addEventListener('DOMContentLoaded', () => {
-      document.body.classList.add('admin-mode');
-      const badge = document.getElementById('adminBadge');
-      if(badge) { badge.classList.add('active'); badge.innerHTML = '🔓 관리자'; }
-      const locked = document.getElementById('uploadLocked');
-      const content = document.getElementById('uploadContent');
-      const membersBtn = document.getElementById('membersNavBtn');
-      const dataBtn = document.getElementById('dataMenuBtn');
-      if(locked) locked.style.display = 'none';
-      if(content) content.style.display = 'block';
-      if(membersBtn) membersBtn.style.display = 'inline-flex';
-      if(dataBtn) dataBtn.style.display = 'inline-flex';
-    });
-  }
-})();
-
 function toggleAdmin() {
   if(isAdmin) {
     document.getElementById('logoutModal').classList.add('show');
@@ -962,7 +922,6 @@ function checkAdminPw() {
     document.getElementById('uploadContent').style.display = 'block';
     document.getElementById('membersNavBtn').style.display = 'inline-flex';
     document.getElementById('dataMenuBtn').style.display = 'inline-flex';
-    sessionStorage.setItem('bowlingAdmin', 'true');
     toast('관리자 모드 활성화 ✓', 'success');
     refreshAll();
   } else {
@@ -985,7 +944,6 @@ function closeLogoutModal() {
 
 function doLogout() {
   isAdmin = false;
-  sessionStorage.removeItem('bowlingAdmin');
   document.body.classList.remove('admin-mode');
   document.getElementById('adminBadge').classList.remove('active');
   document.getElementById('adminBadge').innerHTML = '🔒 관리자';
@@ -1034,8 +992,6 @@ const EXTRA_FINES_KEY = 'bowlingApp_extraFines';   // 추가 벌금 (미투표/�
 const PRIZES_KEY = 'bowlingApp_prizes';             // 상금 내역
 
 function loadData() {
-  const cached = window._fb_cache_data;
-  if(cached) return cached;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if(raw) return JSON.parse(raw);
@@ -1044,14 +1000,27 @@ function loadData() {
 }
 
 function saveData(data) {
-  window._bowlingData = data;
-  fbSet('data', data);
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    window._bowlingData = data;
+  } catch(e) { console.error('저장 실패', e); }
+  window.fbSave && window.fbSave('data', data);
 }
 
 // 벌금 납부 정보 (roundId_playerName → true/false)
-function loadFinePayments() { return fbLoad('finePayments', {}); }
+function loadFinePayments() {
+  try {
+    const raw = localStorage.getItem(FINE_PAYMENT_KEY);
+    if(raw) return JSON.parse(raw);
+  } catch(e) {}
+  return {};
+}
 
-function saveFinePayments(payments) { fbSet('finePayments', payments); }
+function saveFinePayments(payments) {
+  try {
+    localStorage.setItem(FINE_PAYMENT_KEY, JSON.stringify(payments));
+  } catch(e) { console.error('벌금저장 실패', e); }
+  window.fbSave && window.fbSave('finePayments', payments);
 }
 
 function toggleFinePayment(roundId, name) {
@@ -1071,14 +1040,17 @@ function isFinePayment(roundId, name) {
 // ── 성별 관리 ─────────────────────────────────────────
 const GENDER_KEY = 'bowlingApp_genders';
 function loadGenders() {
-  const cached = fbLoad('genders', null);
-  if(cached) return cached;
+  try { const r = localStorage.getItem(GENDER_KEY); if(r) return JSON.parse(r); } catch(e) {}
+  // 기본값: FEMALE_PLAYERS 기준으로 초기화
   const g = {};
   for(const name in BASE_PLAYERS) g[name] = FEMALE_PLAYERS.has(name) ? 'F' : 'M';
   return g;
 }
-function saveGenders(g) { fbSet('genders', g); }
+function saveGenders(g) {
+  try { localStorage.setItem(GENDER_KEY, JSON.stringify(g)); } catch(e) {}
+  window.fbSave && window.fbSave('genders', g);
 }
+
 function isFemale(name) {
   const g = loadGenders();
   // localStorage 값 우선, 없으면 FEMALE_PLAYERS 기준
@@ -1103,8 +1075,13 @@ const EXTRA_FINE_TYPES = {
   absent: { label: '무단불참/늦참',   amount: 10000, icon: '⏰' },
 };
 
-function loadExtraFines() { return fbLoad('extraFines', []); }
-function saveExtraFines(list) { fbSet('extraFines', list); }
+function loadExtraFines() {
+  try { const r = localStorage.getItem(EXTRA_FINES_KEY); if(r) return JSON.parse(r); } catch(e) {}
+  return [];
+}
+function saveExtraFines(list) {
+  try { localStorage.setItem(EXTRA_FINES_KEY, JSON.stringify(list)); } catch(e) {}
+  window.fbSave && window.fbSave('extraFines', list);
 }
 
 function addExtraFine() {
@@ -1148,8 +1125,13 @@ function deleteExtraFine(id) {
 
 // ── 상금 ─────────────────────────────────────────────────
 // 구조: { id, roundLabel, name, amount, reason, date }
-function loadPrizes() { return fbLoad('prizes', []); }
-function savePrizes(list) { fbSet('prizes', list); }
+function loadPrizes() {
+  try { const r = localStorage.getItem(PRIZES_KEY); if(r) return JSON.parse(r); } catch(e) {}
+  return [];
+}
+function savePrizes(list) {
+  try { localStorage.setItem(PRIZES_KEY, JSON.stringify(list)); } catch(e) {}
+  window.fbSave && window.fbSave('prizes', list);
 }
 
 function addPrize() {
@@ -2346,10 +2328,12 @@ const SPONSOR_KEY = 'bowlingApp_sponsors'; // 찬조 내역
 const DUES_KEY = 'bowlingApp_dues'; // { year, name, months: {1:true,...} }
 const NOTICE_KEY = 'bowlingApp_notices';
 function loadNotices() {
-  return fbLoad('notices', []);
+  try { const r = localStorage.getItem(NOTICE_KEY); if(r) return JSON.parse(r); } catch(e) {}
+  return [];
 }
 function saveNotices(list) {
-  fbSet('notices', list);
+  try { localStorage.setItem(NOTICE_KEY, JSON.stringify(list)); } catch(e) {}
+  window.fbSave && window.fbSave('notices', list);
 }
 
 function addNotice() {
@@ -2485,8 +2469,17 @@ const INIT_DUES = {
   '김기범': {1:false, 2:false, 3:false, 4:false, 5:false, 6:false, 7:false, 8:false, 9:false, 10:false, 11:false, 12:false},
 };
 
-function loadDues() { return fbLoad('dues', null) || JSON.parse(JSON.stringify(INIT_DUES)); }
-function saveDues(data) { fbSet('dues', data); }
+function loadDues() {
+  try {
+    const r = localStorage.getItem(DUES_KEY);
+    if(r) return JSON.parse(r);
+  } catch(e) {}
+  // 초기 데이터 반환
+  return JSON.parse(JSON.stringify(INIT_DUES));
+}
+function saveDues(data) {
+  try { localStorage.setItem(DUES_KEY, JSON.stringify(data)); } catch(e) {}
+  window.fbSave && window.fbSave('dues', data);
 }
 
 function toggleDues(name, month) {
@@ -2715,8 +2708,13 @@ function renderDuesSummary(memberStats, curMonth) {
 
 // ── 찬조 관리 ──────────────────────────────────────────────
 // 구조: { id, name, amount, reason, date, note }
-function loadSponsors() { return fbLoad('sponsors', []); }
-function saveSponsors(list) { fbSet('sponsors', list); }
+function loadSponsors() {
+  try { const r = localStorage.getItem(SPONSOR_KEY); if(r) return JSON.parse(r); } catch(e) {}
+  return [];
+}
+function saveSponsors(list) {
+  try { localStorage.setItem(SPONSOR_KEY, JSON.stringify(list)); } catch(e) {}
+  window.fbSave && window.fbSave('sponsors', list);
 }
 
 function addSponsor() {
@@ -2989,19 +2987,21 @@ function deletePlayerFromRound(roundId, name) {
   toast(`${name} 점수 삭제 완료`);
 }
 
-function refreshAllViews() { refreshAll(); }
+function refreshAllViews() {
+  refreshAll();
+  if(typeof renderNotice === "function") renderNotice();
+  if(typeof renderFines === "function") {
+    const s = document.getElementById("fines");
+    if(s && s.classList.contains("active")) renderFines();
+  }
+}
+
 function refreshAll() {
   renderRounds();
   renderPlayers();
   if(currentRankTab) renderRanking(currentRankTab);
-  // 현재 활성화된 섹션 갱신
-  const active = document.querySelector('.section.active');
-  const id = active ? active.id : '';
-  if(id === 'fines'   || document.getElementById('fines')?.classList.contains('active'))   renderFines();
-  if(id === 'prizes'  || document.getElementById('prizes')?.classList.contains('active'))  renderPrizes();
-  if(id === 'dues'    || document.getElementById('dues')?.classList.contains('active'))    renderDues();
-  if(id === 'sponsor' || document.getElementById('sponsor')?.classList.contains('active')) renderSponsor();
-  if(id === 'notice'  || document.getElementById('notice')?.classList.contains('active'))  renderNotice();
+  const finesSection = document.getElementById('fines');
+  if(finesSection && finesSection.classList.contains('active')) renderFines();
 }
 
 // ── 엑셀 다운로드 ─────────────────────────────────────────

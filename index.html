@@ -1428,9 +1428,11 @@ function getRoundAvgAndHandi(roundIdx, name) {
 function getAllFines() {
   const data = loadData();
   const payments = loadFinePayments();
+  const extraFines = loadExtraFines();
   const finesByRound = []; // { roundId, label, date, fines: [{name, g, baseAvg, amount, paid}] }
   const finesByPlayer = {}; // name → { total, paid, unpaid, details }
 
+  // 게임 벌금
   data.rounds.forEach((round, roundIdx) => {
     const roundFines = [];
     for(const sc of round.scores) {
@@ -1450,6 +1452,40 @@ function getAllFines() {
     }
     if(roundFines.length > 0) {
       finesByRound.push({ roundId: round.id, label: round.label, date: round.date, fines: roundFines });
+    }
+  });
+
+  // 추가벌금을 finesByRound에 포함
+  // 추가벌금을 회차별로 그룹화
+  const extraByRound = {};
+  extraFines.forEach(ef => {
+    const key = ef.roundLabel || '기타';
+    if(!extraByRound[key]) extraByRound[key] = { label: key, date: ef.date || '', fines: [] };
+    const info = EXTRA_FINE_TYPES[ef.type] || { label: ef.type, icon: '💸' };
+    extraByRound[key].fines.push({
+      name: ef.name,
+      extra: true,
+      icon: info.icon,
+      label: info.label,
+      amount: ef.amount,
+      paid: !!ef.paid,
+      efId: ef.id
+    });
+    // finesByPlayer에도 합산
+    if(!finesByPlayer[ef.name]) finesByPlayer[ef.name] = { total:0, paid:0, unpaid:0, details:[] };
+    finesByPlayer[ef.name].total += ef.amount;
+    if(ef.paid) finesByPlayer[ef.name].paid += ef.amount;
+    else finesByPlayer[ef.name].unpaid += ef.amount;
+    finesByPlayer[ef.name].details.push({ label: key, date: ef.date||'', amount: ef.amount, paid: !!ef.paid, extra: true, icon: info.icon, efLabel: info.label });
+  });
+
+  // 추가벌금 회차를 finesByRound에 병합 (같은 회차면 합치기, 없으면 추가)
+  Object.values(extraByRound).forEach(eg => {
+    const existing = finesByRound.find(r => r.label === eg.label);
+    if(existing) {
+      existing.fines.push(...eg.fines);
+    } else {
+      finesByRound.push({ roundId: 'extra_'+eg.label, label: eg.label, date: eg.date, fines: eg.fines });
     }
   });
 
@@ -2066,7 +2102,21 @@ function renderFineByRound() {
           </div>
         </div>
       </div>
-      ${r.fines.map(f => `
+      ${r.fines.map(f => f.extra ? `
+      <div class="fine-row ${f.paid ? 'paid' : ''}" style="border-left:3px solid var(--yellow);">
+        <!-- 추가벌금 체크박스 -->
+        <div class="fine-check-wrap">
+          <input type="checkbox" id="chk_ef_${f.efId}"
+            ${f.paid ? 'checked' : ''}
+            ${!isAdmin ? 'disabled' : ''}
+            onchange="toggleExtraFinePaidAndRefresh('${f.efId}')">
+          <label class="fine-check-box" for="chk_ef_${f.efId}" style="${!isAdmin?'cursor:not-allowed;opacity:0.5;':''}"></label>
+        </div>
+        <!-- 이름 & 정보 -->
+        <div style="flex:1;min-width:0;">
+          <div class="fine-name" style="${f.paid ? 'text-decoration:line-through;color:var(--text3);' : ''}">${f.name}</div>
+          <div class="fine-detail">${f.icon} ${f.label}</div>
+        </div>` : `
       <div class="fine-row ${f.paid ? 'paid' : ''}">
         <!-- 체크박스 -->
         <div class="fine-check-wrap">
@@ -2106,6 +2156,16 @@ function toggleFinePaymentAndRefresh(roundId, name) {
   saveFinePayments(payments);
   renderFineByRound();
   toast(newVal ? `${name} 납부 완료 처리 ✓` : `${name} 납부 취소`, newVal ? 'success' : 'error');
+}
+
+function toggleExtraFinePaidAndRefresh(efId) {
+  if(!isAdmin) { toast('관리자만 변경할 수 있습니다.', 'error'); return; }
+  const list = loadExtraFines();
+  const ef = list.find(e => e.id === efId);
+  if(!ef) return;
+  ef.paid = !ef.paid;
+  saveExtraFines(list);
+  renderFines();
 }
 
 function renderFineByPlayer() {
@@ -3244,6 +3304,14 @@ function castBanggaeVote(eventId, name, choice) {
   const b = loadBanggae();
   const ev = b.events.find(e => e.id === eventId);
   if(!ev || ev.status !== 'open') { toast('마감된 투표입니다.', 'error'); return; }
+  // 같은 선택 다시 누르면 취소
+  if(ev.votes[name] === choice) {
+    ev.votes[name] = '';
+    saveBanggae(b);
+    renderBanggae();
+    toast(`${name} 투표 취소`);
+    return;
+  }
   ev.votes[name] = choice;
   saveBanggae(b);
   renderBanggae();
@@ -3374,7 +3442,7 @@ function renderBanggae() {
             <!-- 팀편성 바로가기 -->
             ${yesVoters.length > 0 ? `
             <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);">
-              <button onclick="goBanggaeTeam(${JSON.stringify(yesVoters)})"
+              <button onclick="goBanggaeTeamById('${ev.id}')"
                 style="width:100%;padding:10px;border-radius:10px;background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.3);color:var(--yellow);font-weight:700;font-size:13px;cursor:pointer;">
                 ⚡ 참석자 ${yesVoters.length}명으로 팀 편성하기
               </button>
@@ -3386,6 +3454,18 @@ function renderBanggae() {
 }
 
 function goBanggaeTeam(yesVoters) {
+  window._teamBuilderPreset = yesVoters;
+  showSection('teambuilder', document.querySelector('.nav-btn[onclick*="teambuilder"]'));
+  renderTeamBuilder(yesVoters);
+  toast(`참석자 ${yesVoters.length}명으로 팀 편성 화면으로 이동했습니다!`);
+}
+
+function goBanggaeTeamById(eventId) {
+  const b = loadBanggae();
+  const ev = b.events.find(e => e.id === eventId);
+  if(!ev) return;
+  const yesVoters = Object.entries(ev.votes).filter(([,v]) => v === 'yes').map(([n]) => n);
+  if(yesVoters.length === 0) { toast('참석자가 없습니다.', 'error'); return; }
   window._teamBuilderPreset = yesVoters;
   showSection('teambuilder', document.querySelector('.nav-btn[onclick*="teambuilder"]'));
   renderTeamBuilder(yesVoters);
@@ -3728,6 +3808,14 @@ function castVote(pollId, name, choice) {
   const v = loadVotes();
   const poll = v.polls.find(p => p.id === pollId);
   if(!poll || poll.status !== 'open') { toast('마감된 투표입니다.', 'error'); return; }
+  // 같은 선택 다시 누르면 취소
+  if(poll.votes[name] === choice) {
+    poll.votes[name] = '';
+    saveVotes(v);
+    renderVote();
+    toast(`${name} 투표 취소`);
+    return;
+  }
   poll.votes[name] = choice;
   saveVotes(v);
   renderVote();

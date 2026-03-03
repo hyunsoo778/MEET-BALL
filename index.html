@@ -2518,6 +2518,75 @@ function deleteNotice(id) {
   toast('공지 삭제 완료');
 }
 
+function editNotice(id) {
+  if(!isAdmin) return;
+  const n = loadNotices().find(x => x.id === id);
+  if(!n) return;
+  const card = document.getElementById('nc_' + id);
+  if(!card) return;
+  card.innerHTML = `
+    <div style="padding:14px 20px;background:rgba(249,115,22,0.08);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;">
+      <span style="font-size:13px;font-weight:700;color:var(--accent);">✏️ 공지 수정 중</span>
+    </div>
+    <div style="padding:20px;display:flex;flex-direction:column;gap:12px;">
+      <div class="input-group">
+        <label>제목</label>
+        <input id="en_title_${id}" type="text" value="${(n.title||'').replace(/"/g,'&quot;')}"
+          style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:8px;font-size:14px;outline:none;font-family:inherit;">
+      </div>
+      <div class="input-group">
+        <label>내용</label>
+        <textarea id="en_body_${id}" rows="5"
+          style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:8px;font-size:14px;outline:none;font-family:inherit;resize:vertical;line-height:1.6;">${n.body||''}</textarea>
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--text3);display:block;margin-bottom:6px;">이미지</label>
+        <img id="en_img_${id}" src="${n.imageDataUrl||''}" style="display:${n.imageDataUrl?'block':'none'};max-width:100%;max-height:260px;border-radius:10px;border:1px solid var(--border);margin-bottom:8px;">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <label style="display:inline-flex;align-items:center;gap:6px;background:var(--bg3);border:1px dashed var(--border);border-radius:8px;padding:8px 14px;cursor:pointer;font-size:12px;color:var(--text2);">
+            🖼️ 이미지 변경
+            <input type="file" accept="image/*" style="display:none;" onchange="handleEditNoticeImg('${id}',this.files[0])">
+          </label>
+          ${n.imageDataUrl ? `<button onclick="clearEditNoticeImg('${id}')" style="background:none;border:1px solid rgba(239,68,68,0.3);color:var(--red);border-radius:8px;padding:8px 12px;font-size:12px;cursor:pointer;">🗑 이미지 제거</button>` : ''}
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:4px;">
+        <button class="btn btn-primary" onclick="saveNoticeEdit('${id}')">💾 저장</button>
+        <button class="btn btn-secondary" onclick="renderNotice()">취소</button>
+      </div>
+    </div>`;
+}
+
+function handleEditNoticeImg(id, file) {
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = document.getElementById('en_img_' + id);
+    if(img) { img.src = e.target.result; img.style.display = 'block'; }
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearEditNoticeImg(id) {
+  const img = document.getElementById('en_img_' + id);
+  if(img) { img.src = ''; img.style.display = 'none'; }
+}
+
+function saveNoticeEdit(id) {
+  if(!isAdmin) return;
+  const title = document.getElementById('en_title_' + id)?.value.trim() || '';
+  const body  = document.getElementById('en_body_'  + id)?.value.trim() || '';
+  const imgEl = document.getElementById('en_img_'   + id);
+  const imageDataUrl = (imgEl?.style.display !== 'none' && imgEl?.src && imgEl.src !== window.location.href) ? imgEl.src : '';
+  const list = loadNotices();
+  const idx  = list.findIndex(x => x.id === id);
+  if(idx < 0) return;
+  list[idx] = { ...list[idx], title, body, imageDataUrl, updatedAt: new Date().toLocaleDateString('ko-KR') };
+  saveNotices(list);
+  renderNotice();
+  toast('공지 수정 완료!');
+}
+
 function handleNoticeImage(file) {
   if(!file) return;
   const reader = new FileReader();
@@ -2572,15 +2641,18 @@ function renderNotice() {
     <div class="empty-text">등록된 공지사항이 없습니다</div>
   </div>` :
   list.map((n, i) => `
-  <div style="background:var(--card);border:1px solid ${i===0?'rgba(249,115,22,0.4)':'var(--border)'};border-radius:16px;overflow:hidden;margin-bottom:16px;">
-    <div style="padding:16px 20px;background:${i===0?'rgba(249,115,22,0.06)':'var(--bg3)'};border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;">
+  <div id="nc_${n.id}" style="background:var(--card);border:1px solid ${i===0?'rgba(249,115,22,0.4)':'var(--border)'};border-radius:16px;overflow:hidden;margin-bottom:16px;">
+    <div style="padding:16px 20px;background:${i===0?'rgba(249,115,22,0.06)':'var(--bg3)'};border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
       <div style="display:flex;align-items:center;gap:10px;">
         ${i===0?'<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:var(--accent);color:white;font-weight:700;">NEW</span>':''}
         <div style="font-weight:700;font-size:15px;">${n.title || '(제목 없음)'}</div>
       </div>
-      <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
-        <span style="font-size:12px;color:var(--text3);">${n.createdAt}</span>
-        ${isAdmin ? `<button onclick="deleteNotice('${n.id}')" style="background:none;border:1px solid rgba(239,68,68,0.3);color:var(--red);border-radius:6px;padding:2px 8px;font-size:11px;cursor:pointer;">✕ 삭제</button>` : ''}
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+        <span style="font-size:12px;color:var(--text3);">${n.updatedAt ? n.updatedAt+' 수정됨' : n.createdAt}</span>
+        ${isAdmin ? `
+          <button onclick="editNotice('${n.id}')" style="background:none;border:1px solid rgba(249,115,22,0.35);color:var(--accent);border-radius:6px;padding:3px 10px;font-size:11px;cursor:pointer;white-space:nowrap;">✏️ 수정</button>
+          <button onclick="deleteNotice('${n.id}')" style="background:none;border:1px solid rgba(239,68,68,0.3);color:var(--red);border-radius:6px;padding:3px 10px;font-size:11px;cursor:pointer;white-space:nowrap;">✕ 삭제</button>
+        ` : ''}
       </div>
     </div>
     <div style="padding:20px;">

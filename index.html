@@ -596,6 +596,10 @@
     const statusEl = document.getElementById('fbStatus');
     if (statusEl) statusEl.textContent = '🟡 연결 중...';
     startSync();
+    // 초기 화면: 번개 투표 탭
+    setTimeout(() => {
+      if(typeof switchVoteTab === 'function') switchVoteTab('banggae');
+    }, 300);
   });
 
   // 메모리 캐시 (load 함수가 즉시 읽을 수 있도록)
@@ -622,12 +626,12 @@
   <div class="logo">🎳 MEET BALL</div>
   <nav>
     <button class="nav-btn" onclick="showSection('notice',this)">📢 공지</button>
-    <button class="nav-btn active" onclick="showSection('upload',this)">📷 점수입력</button>
+    <button class="nav-btn" onclick="showSection('upload',this)">📷 점수입력</button>
     <button class="nav-btn" onclick="showSection('ranking',this)">🏆 순위</button>
     <button class="nav-btn" onclick="showSection('rounds',this)">📅 회차기록</button>
     <button class="nav-btn" onclick="showSection('players',this)">👥 선수현황</button>
     <button class="nav-btn" onclick="showSection('dues',this)">💰 회비·벌금·상금</button>
-    <button class="nav-btn" onclick="showSection('vote',this)">🗳️ 투표</button>
+    <button class="nav-btn active" onclick="showSection('vote',this)">🗳️ 투표</button>
     <button class="nav-btn" onclick="showSection('teambuilder',this)">⚡ 팀 편성</button>
     <button class="nav-btn" id="membersNavBtn" onclick="showSection('members',this)" style="display:none;">⚙️ 회원관리</button>
     <button class="btn btn-secondary" id="dataMenuBtn" onclick="toggleDataMenu()"
@@ -656,7 +660,7 @@
 </section>
 
 <!-- ① 점수 입력 -->
-<section id="upload" class="section active">
+<section id="upload" class="section">
   <div class="page-title">SCORE INPUT</div>
   <div class="page-sub">점수표 이미지를 업로드하면 AI가 자동으로 점수를 인식합니다</div>
   <div id="uploadLocked" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 20px;color:var(--text3);">
@@ -855,7 +859,7 @@
 
 
 <!-- 정기전 투표 -->
-<section id="vote" class="section">
+<section id="vote" class="section active">
   <div class="page-title">🗳️ 투표</div>
   <div class="page-sub">정기전 · 번개 참가 투표</div>
   <!-- 탭 버튼 -->

@@ -5559,6 +5559,85 @@ function handleImage(file) {
   reader.readAsDataURL(file);
 }
 
+// 이미지 전처리: 대비 강화 + 그레이스케일 + 이진화
+function preprocessImage(dataUrl) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      // 해상도 2배 업스케일 (OCR 정확도 향상)
+      const scale = Math.min(3, Math.max(1, 1200 / Math.max(img.width, img.height)));
+      canvas.width = img.width * scale;
+      canvas.height = img.height * scale;
+      const ctx = canvas.getContext('2d');
+
+      // 흰 배경으로 초기화
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+      // 픽셀 조작: 그레이스케일 + 대비강화 + 이진화
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const d = imageData.data;
+      for (let i = 0; i < d.length; i += 4) {
+        // 그레이스케일 변환
+        const gray = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
+        // 대비 강화 (S커브)
+        const contrast = 1.8;
+        const factor = (259 * (contrast * 255 + 255)) / (255 * (259 - contrast * 255));
+        const enhanced = Math.min(255, Math.max(0, factor * (gray - 128) + 128));
+        // 임계값 이진화 (어두운 텍스트 → 검정, 나머지 → 흰색)
+        const binary = enhanced < 160 ? 0 : 255;
+        d[i] = d[i+1] = d[i+2] = binary;
+        d[i+3] = 255;
+      }
+      ctx.putImageData(imageData, 0, 0);
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.onerror = () => resolve(dataUrl); // 실패시 원본 사용
+    img.src = dataUrl;
+  });
+}
+
+// 점수 추출 로직 개선: 여러 줄에 흩어진 숫자도 수집
+function extractBowlingScores(text) {
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  const rows = [];
+
+  // 전략 1: 한 줄에 숫자 3개 이상 있는 경우 (기존 방식 개선)
+  for (const line of lines) {
+    const nums = [];
+    const re = /\b(300|[1-9]\d{1,2})\b/g;
+    let m;
+    while ((m = re.exec(line)) !== null) {
+      const n = parseInt(m[1]);
+      if (n >= 50 && n <= 300) nums.push(n);
+    }
+    if (nums.length >= 3) {
+      rows.push({ name: '', g1: nums[0], g2: nums[1], g3: nums[2], total: nums[0]+nums[1]+nums[2] });
+      continue;
+    }
+    // 숫자 2개인 경우: 바로 다음 줄에서 나머지 수집 시도 (아래 전략 2)
+  }
+
+  // 전략 2: 점수가 여러 줄에 흩어진 경우 → 전체 텍스트에서 유효 숫자 수집
+  if (rows.length === 0) {
+    const allNums = [];
+    const re = /\b(300|[1-9]\d{1,2})\b/g;
+    let m;
+    while ((m = re.exec(text)) !== null) {
+      const n = parseInt(m[1]);
+      if (n >= 50 && n <= 300) allNums.push(n);
+    }
+    // 3개씩 묶어서 행 생성
+    for (let i = 0; i + 2 < allNums.length; i += 3) {
+      rows.push({ name: '', g1: allNums[i], g2: allNums[i+1], g3: allNums[i+2], total: allNums[i]+allNums[i+1]+allNums[i+2] });
+    }
+  }
+
+  return rows;
+}
+
 async function recognizeScores(dataUrl) {
   const loading = document.getElementById('loading');
   const progressMsg = document.getElementById('ocrProgressMsg');
@@ -5566,27 +5645,21 @@ async function recognizeScores(dataUrl) {
   loading.classList.add('show');
   document.getElementById('scoreEditor').classList.remove('show');
   try {
+    setMsg('이미지 전처리 중...');
+    const processedUrl = await preprocessImage(dataUrl);
+
     setMsg('이미지에서 숫자 추출 중... (처음엔 30초 정도 소요)');
-    const { data: { text } } = await Tesseract.recognize(dataUrl, 'kor+eng', {
-      logger: m => { if(m.status === 'recognizing text') setMsg('인식 중... ' + Math.round(m.progress*100) + '%'); }
+    // eng만 사용 (숫자 인식 시 한국어 모델 불필요, 오히려 오인식 유발)
+    const { data: { text } } = await Tesseract.recognize(processedUrl, 'eng', {
+      logger: m => { if(m.status === 'recognizing text') setMsg('인식 중... ' + Math.round(m.progress*100) + '%'); },
+      tessedit_char_whitelist: '0123456789 \t\n',  // 숫자와 공백만 인식
+      tessedit_pageseg_mode: '6',  // PSM 6: 균일한 텍스트 블록으로 가정 (표 형태에 적합)
     });
-    const rows = [];
-    const textLines = text.split('\n');
-    for(const line of textLines) {
-      const nums = [];
-      const re2 = /\b([1-9]\d{1,2}|300)\b/g;
-      let m2;
-      while((m2 = re2.exec(line)) !== null) {
-        const n = parseInt(m2[1]);
-        if(n >= 50 && n <= 300) nums.push(n);
-      }
-      if(nums.length >= 3) {
-        rows.push({ name: '', g1: nums[0], g2: nums[1], g3: nums[2], total: nums[0]+nums[1]+nums[2] });
-      }
-    }
+
+    const rows = extractBowlingScores(text);
     const scores = rows.length > 0 ? rows : [{name:'',g1:0,g2:0,g3:0,total:0}];
     renderScoreEditor(scores);
-    if(rows.length > 0) { toast(rows.length + '개 행 추출! 이름을 선택해주세요.'); }
+    if(rows.length > 0) { toast('✅ ' + rows.length + '개 행 추출! 이름을 선택해주세요.'); }
     else { toast('숫자 자동 추출 실패. 직접 입력해주세요.', 'error'); }
   } catch(err) {
     console.error(err);
@@ -5605,8 +5678,10 @@ async function analyzeTxImage(dataUrl, mimeType) {
 
   try {
     loading.querySelector && (loading.querySelector('div') || loading).textContent;
-    const { data: { text } } = await Tesseract.recognize(dataUrl, 'kor+eng', {
-      logger: () => {}
+    const processedUrl2 = await preprocessImage(dataUrl);
+    const { data: { text } } = await Tesseract.recognize(processedUrl2, 'kor+eng', {
+      logger: () => {},
+      tessedit_pageseg_mode: '6',
     });
 
     // 금액 패턴 추출: 숫자+원 or 콤마포함숫자

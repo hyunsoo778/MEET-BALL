@@ -5483,13 +5483,14 @@ function clearApiKey() {
 
 function getApiHeaders() {
   const key = getApiKey();
-  if(!key) return null;
-  return {
+  // API 키가 있으면 사용, 없으면 프록시 모드로 동작
+  const headers = {
     'Content-Type': 'application/json',
-    'x-api-key': key,
     'anthropic-version': '2023-06-01',
     'anthropic-dangerous-request-proxy': 'true'
   };
+  if(key) headers['x-api-key'] = key;
+  return headers;
 }
 
 // ── 관리자 인증 ───────────────────────────────────────────
@@ -6133,12 +6134,6 @@ async function recognizeScores(dataUrl) {
 
   try {
     const headers = getApiHeaders();
-    if(!headers) {
-      loading.classList.remove('show');
-      toast('🔑 API 키를 먼저 설정해주세요 (우측 상단 API 키 버튼)', 'error');
-      openApiKeyModal();
-      return;
-    }
     const base64 = dataUrl.split(',')[1];
     const mediaType = dataUrl.split(';')[0].split(':')[1];
 
@@ -6153,11 +6148,17 @@ async function recognizeScores(dataUrl) {
           content: [
             { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
             { type: 'text', text: `이 볼링 점수표 이미지에서 선수별 점수를 추출해주세요.
-반드시 아래 JSON 형식으로만 응답하세요. 다른 텍스트 없이 JSON만:
-{"scores":[{"name":"선수이름","g1":숫자,"g2":숫자,"g3":숫자,"total":숫자},...]}
-- 이름이 한글로 적혀있으면 그대로 사용
-- 점수가 안보이면 0으로
-- total이 없으면 g1+g2+g3 합산` }
+
+주의사항:
+- 숫자를 정확히 읽어주세요. 특히 6↔8, 1↔7, 0↔6 혼동 주의
+- 이름은 이미지에 보이는 그대로 한글로 작성
+- 점수는 1게임당 0~300 범위 (볼링 최고점 300)
+- g1, g2, g3 중 게임이 없는 경우 0으로
+- total이 표시된 경우 그 값을 사용, 없으면 g1+g2+g3 계산
+- 이름이 잘려있거나 불명확하면 보이는 글자 그대로 입력
+
+반드시 아래 JSON 형식으로만 응답하세요. 코드블록, 설명 없이 JSON만:
+{"scores":[{"name":"선수이름","g1":숫자,"g2":숫자,"g3":숫자,"total":숫자},...]}` }
           ]
         }]
       })
@@ -7813,12 +7814,6 @@ async function analyzeTxImage(dataUrl, mimeType) {
 
   try {
     const headers = getApiHeaders();
-    if(!headers) {
-      loading.style.display = 'none';
-      toast('🔑 API 키를 먼저 설정해주세요 (우측 상단 API 키 버튼)', 'error');
-      openApiKeyModal();
-      return;
-    }
     const base64 = dataUrl.split(',')[1];
     const resp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -7858,12 +7853,6 @@ async function analyzeTxText() {
 
   try {
     const headers = getApiHeaders();
-    if(!headers) {
-      loading.style.display = 'none';
-      toast('🔑 API 키를 먼저 설정해주세요 (우측 상단 API 키 버튼)', 'error');
-      openApiKeyModal();
-      return;
-    }
     const resp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers,
@@ -7889,13 +7878,21 @@ function buildTxAnalysisPrompt(memberNames) {
 
 분류 기준:
 - dues(회비): 월 정기 납부, 30,000원 단위, "회비", "월회비" 키워드
-- fine(벌금): 소액(1,000~10,000원), "벌금", "미투표", "클럽티", "지각", "불참" 키워드  
+- fine(벌금): 소액(1,000~10,000원), "벌금", "미투표", "클럽티", "지각", "불참", "페널티" 키워드  
 - prize(상금): "상금", "1위", "2위", "퍼펙트", "하이게임", "뽑기" 키워드 또는 수령(출금)
 - sponsor(찬조): "찬조", "후원", "협찬", 큰 금액 입금 키워드
 
-⚡ 금액 주의: 30,000원 배수(60,000/90,000 등)의 회비 입금은 여러 명이 같이 낸 것일 수 있습니다. 이 경우 canSplit:true로 표시해주세요.
+이름 매칭 주의사항:
+- 회원 명단과 거래 메모의 이름을 최대한 매칭하되, 애칭/별명도 고려
+- 이름이 확실하지 않으면 name을 null로 설정
+- 동명이인 가능성이 있으면 confidence를 low로
 
-반드시 아래 JSON 형식으로만 답변하세요. 다른 텍스트 없이 JSON만:
+⚡ 금액 주의:
+- 30,000원 배수(60,000/90,000 등)의 회비 입금은 여러 명이 같이 낸 것일 수 있음 → canSplit:true
+- 금액이 클수록 여러 명의 회비를 합산했을 가능성 높음
+- 0원 또는 비정상 금액은 unknown으로 처리
+
+반드시 아래 JSON 형식으로만 답변하세요. 코드블록 없이 JSON만:
 {
   "items": [
     {
@@ -7904,7 +7901,7 @@ function buildTxAnalysisPrompt(memberNames) {
       "category": "dues|fine|prize|sponsor|unknown",
       "label": "분류 이유 한 줄 설명",
       "date": "날짜(없으면 null)",
-      "memo": "메모",
+      "memo": "원본 메모 그대로",
       "confidence": "high|medium|low",
       "month": 월(회비인 경우 해당 월 숫자, 없으면 null),
       "direction": "in|out",
@@ -9573,11 +9570,11 @@ function updateBuilderStats() {
   let extraMsg = '';
   if(mode === 'unified') {
     const teamCount = parseInt(document.getElementById('tb_teamcount')?.value || 2);
-    const perTeam = Math.floor(sel.length / teamCount);
-    const remainder = sel.length % teamCount;
-    const canBuild = aEven && bEven;
-    extraMsg = `<span>🏃 팀당 <b style="color:var(--green);">${perTeam}명</b>${remainder>0?` (+${remainder})`:''}</span>`;
-    if(!canBuild) extraMsg += `<div style="margin-top:8px;padding:6px 10px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);border-radius:8px;font-size:11px;color:#ef4444;">⚠️ A/B 그룹이 각각 짝수여야 팀 편성이 가능합니다</div>`;
+    const tpCount = (aEven ? aCount : 0) + (bEven ? bCount : 0);
+    const perTeam = tpCount > 0 ? Math.floor(tpCount / teamCount) : 0;
+    const soloCount = (!aEven ? aCount : 0) + (!bEven ? bCount : 0);
+    extraMsg = `<span>🏃 팀당 <b style="color:var(--green);">${perTeam}명</b></span>`;
+    if(soloCount > 0) extraMsg += `<span style="color:#eab308;">🏆 개인전 <b>${soloCount}명</b> (홀수 그룹 전원)</span>`;
   } else {
     const tcA = parseInt(document.getElementById('tb_teamcount_a')?.value || 2);
     const tcB = parseInt(document.getElementById('tb_teamcount_b')?.value || 2);
@@ -9586,8 +9583,8 @@ function updateBuilderStats() {
     const remA = aCount % tcA;
     const remB = bCount % tcB;
     extraMsg = `<span style="color:#3b82f6;">A팀당 <b>${perA}명</b>${remA>0?` (+${remA})`:''}</span><span style="color:#22c55e;">B팀당 <b>${perB}명</b>${remB>0?` (+${remB})`:''}</span>`;
-    if(!aEven) extraMsg += `<div style="margin-top:8px;padding:6px 10px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);border-radius:8px;font-size:11px;color:#ef4444;">⚠️ A그룹이 짝수여야 합니다</div>`;
-    if(!bEven) extraMsg += `<div style="margin-top:8px;padding:6px 10px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);border-radius:8px;font-size:11px;color:#ef4444;">⚠️ B그룹이 짝수여야 합니다</div>`;
+    if(!aEven) extraMsg += `<span style="color:#eab308;font-size:11px;">🏆 A그룹 홀수 → 전원 개인전</span>`;
+    if(!bEven) extraMsg += `<span style="color:#eab308;font-size:11px;">🏆 B그룹 홀수 → 전원 개인전</span>`;
   }
 
   statsEl.innerHTML = `
@@ -9625,23 +9622,20 @@ function buildTeams() {
   const bPlayers = players.filter(p => p.league === 'B');
   const aOdd = aPlayers.length % 2 !== 0;
   const bOdd = bPlayers.length % 2 !== 0;
-  if(aOdd || bOdd) {
-    const msgs = [];
-    if(aOdd) msgs.push(`🔵 A그룹 ${aPlayers.length}명 (홀수)`);
-    if(bOdd) msgs.push(`🟢 B그룹 ${bPlayers.length}명 (홀수)`);
-    document.getElementById('tb_result').innerHTML = `
-    <div style="background:var(--card);border:2px solid rgba(239,68,68,0.4);border-radius:16px;padding:24px;text-align:center;">
-      <div style="font-size:28px;margin-bottom:10px;">⚠️</div>
-      <div style="font-weight:700;font-size:16px;color:#ef4444;margin-bottom:8px;">짝수 인원만 팀 편성 가능합니다</div>
-      <div style="font-size:13px;color:var(--text2);margin-bottom:16px;">A/B 그룹 각각 짝수여야 팀을 짤 수 있습니다.</div>
-      <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
-        ${msgs.map(m => `<span style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:10px;padding:8px 18px;font-weight:700;font-size:14px;color:#ef4444;">${m}</span>`).join('')}
-      </div>
-      <div style="margin-top:16px;font-size:12px;color:var(--text3);">체크된 인원을 조정하거나 ✂️ 분리 모드를 사용하세요.</div>
-    </div>`;
-    toast('A/B 그룹이 각각 짝수여야 합니다!', 'error');
+
+  // 홀수 그룹은 전원 개인전으로 분리
+  const soloGroups = [];
+  if(aOdd) soloGroups.push({ label: '🔵 A그룹', color: '#3b82f6', members: aPlayers });
+  if(bOdd) soloGroups.push({ label: '🟢 B그룹', color: '#22c55e', members: bPlayers });
+
+  const teamPlayers = players.filter(p => !(aOdd && p.league === 'A') && !(bOdd && p.league === 'B'));
+
+  if(teamPlayers.length < 2 && soloGroups.length > 0) {
+    // 전원 개인전인 경우
+    renderTeamResult([], players, noHandi, '통합', soloGroups, []);
     return;
   }
+  if(teamPlayers.length < 2) { toast('팀 편성 가능한 인원이 부족합니다.', 'error'); return; }
 
   const teams = Array.from({length: teamCount}, (_,i) => ({ name: `Team ${i+1}`, members: [], totalAvg: 0 }));
 
@@ -9671,8 +9665,8 @@ function buildTeams() {
   }
 
   if(baseMethod === 'ab_snake') {
-    const aS = players.filter(p => p.league === 'A').sort((a,b) => b.avg - a.avg);
-    const bS = players.filter(p => p.league === 'B').sort((a,b) => b.avg - a.avg);
+    const aS = teamPlayers.filter(p => p.league === 'A').sort((a,b) => b.avg - a.avg);
+    const bS = teamPlayers.filter(p => p.league === 'B').sort((a,b) => b.avg - a.avg);
     let idx = 0, dir = 1;
     aS.forEach((player, i) => {
       teams[idx].members.push(player); teams[idx].totalAvg += player.avg;
@@ -9683,7 +9677,7 @@ function buildTeams() {
       teams[idx].members.push(player); teams[idx].totalAvg += player.avg;
       if(idx === teamCount - 1) dir = -1; else if(idx === 0 && i > 0) dir = 1; idx += dir;
     });
-    const maxPer = Math.ceil(players.length / teamCount);
+    const maxPer = Math.ceil(teamPlayers.length / teamCount);
     for(let t = 0; t < teamCount; t++) {
       while(teams[t].members.length > maxPer) {
         const moved = teams[t].members.pop(); teams[t].totalAvg -= moved.avg;
@@ -9692,14 +9686,14 @@ function buildTeams() {
       }
     }
   } else if(baseMethod === 'snake') {
-    snakeAssign(players, teams);
+    snakeAssign(teamPlayers, teams);
   } else {
-    const shuffled = [...players];
+    const shuffled = [...teamPlayers];
     for(let i = shuffled.length-1; i > 0; i--) { const j = Math.floor(Math.random()*(i+1)); [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]; }
     shuffled.forEach((player, i) => { const t = i % teamCount; teams[t].members.push(player); teams[t].totalAvg += player.avg; });
   }
 
-  renderTeamResult(teams, players, noHandi, '통합');
+  renderTeamResult(teams, players, noHandi, '통합', soloGroups, teamPlayers);
 }
 
 // ── 분리 모드 팀편성 ─────────────────────────────────────
@@ -9720,13 +9714,24 @@ function buildTeamsSplit() {
   const aPlayers = players.filter(p => p.league === 'A');
   const bPlayers = players.filter(p => p.league === 'B');
 
-  if(aPlayers.length % 2 !== 0) { toast('🔵 A그룹이 홀수입니다!', 'error'); return; }
-  if(bPlayers.length % 2 !== 0) { toast('🟢 B그룹이 홀수입니다!', 'error'); return; }
+  const splitSoloPlayers = [];
+  function extractSoloSplit(group) {
+    if(group.length % 2 === 0) return group;
+    const sorted = [...group].sort((a,b) => a.avg - b.avg);
+    const cutoff = Math.floor(sorted.length * 0.3);
+    const solo = sorted[cutoff] || sorted[0];
+    splitSoloPlayers.push(solo);
+    return group.filter(p => p !== solo);
+  }
+  const aFiltered = extractSoloSplit([...aPlayers]);
+  const bFiltered = extractSoloSplit([...bPlayers]);
+
+  if(aFiltered.length < 2 && bFiltered.length < 2) { toast('편성 가능한 인원이 부족합니다.', 'error'); return; }
 
   const tcA = parseInt(document.getElementById('tb_teamcount_a')?.value || 2);
   const tcB = parseInt(document.getElementById('tb_teamcount_b')?.value || 2);
-  if(tcA > aPlayers.length) { toast('A그룹 팀 수가 인원보다 많습니다.', 'error'); return; }
-  if(tcB > bPlayers.length) { toast('B그룹 팀 수가 인원보다 많습니다.', 'error'); return; }
+  if(tcA > aFiltered.length && aFiltered.length > 0) { toast('A그룹 팀 수가 인원보다 많습니다.', 'error'); return; }
+  if(tcB > bFiltered.length && bFiltered.length > 0) { toast('B그룹 팀 수가 인원보다 많습니다.', 'error'); return; }
 
   function makeTeams(pool, count, prefix, color) {
     const tms = Array.from({length: count}, (_,i) => ({ name: `${prefix}${i+1}팀`, members: [], totalAvg: 0, color }));
@@ -9754,24 +9759,62 @@ function buildTeamsSplit() {
     return tms;
   }
 
-  const aTeams = makeTeams(aPlayers, tcA, 'A', '#3b82f6');
-  const bTeams = makeTeams(bPlayers, tcB, 'B', '#22c55e');
+  const aTeams = aFiltered.length >= 2 ? makeTeams(aFiltered, tcA, 'A', '#3b82f6') : [];
+  const bTeams = bFiltered.length >= 2 ? makeTeams(bFiltered, tcB, 'B', '#22c55e') : [];
 
-  renderTeamResultSplit(aTeams, bTeams, aPlayers, bPlayers, noHandi);
+  renderTeamResultSplit(aTeams, bTeams, aFiltered, bFiltered, noHandi, splitSoloPlayers);
 }
 
 // ── 공통 렌더 함수 ────────────────────────────────────────
-function renderTeamResult(teams, players, noHandi, modeLabel) {
+function renderTeamResult(teams, players, noHandi, modeLabel, soloGroups, teamPlayers) {
+  soloGroups = soloGroups || [];
+  teamPlayers = teamPlayers || players;
   const colors = ['#3b82f6','#f97316','#a855f7','#ec4899','#14b8a6','#eab308'];
   const result = document.getElementById('tb_result');
-  const overallAvg = players.reduce((a,p)=>a+p.avg,0) / players.length;
+  const overallAvg = players.length > 0 ? players.reduce((a,p)=>a+p.avg,0) / players.length : 0;
 
-  result.innerHTML = `
+  // 개인전 그룹 섹션
+  const soloSection = soloGroups.length > 0 ? `
+  <div style="background:var(--card);border:2px solid rgba(234,179,8,0.5);border-radius:16px;padding:20px;margin-bottom:20px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap;">
+      <div style="font-size:20px;">🏆</div>
+      <div style="font-weight:700;font-size:16px;color:#eab308;">개인전</div>
+      <span style="font-size:11px;padding:2px 9px;border-radius:20px;background:rgba(234,179,8,0.12);color:#eab308;border:1px solid rgba(234,179,8,0.4);">홀수 그룹 전원</span>
+    </div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:14px;">인원이 홀수인 그룹은 팀 편성 없이 전원 개인전으로 진행합니다.<br>
+    <b style="color:#22c55e;">상위 30% = 3점</b> &nbsp;·&nbsp; <b style="color:#3b82f6;">중위 40% = 2점</b> &nbsp;·&nbsp; <b style="color:#94a3b8;">하위 30% = 1점</b></div>
+    ${soloGroups.map(group => {
+      const sorted = [...group.members].sort((a,b) => b.avg - a.avg);
+      const top30 = Math.ceil(sorted.length * 0.3);
+      const bot30 = Math.floor(sorted.length * 0.3);
+      return `
+      <div style="margin-bottom:14px;">
+        <div style="font-size:13px;font-weight:700;color:${group.color};margin-bottom:8px;">${group.label} · ${group.members.length}명</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;">
+          ${sorted.map((p, i) => {
+            const tier = i < top30 ? {label:'상위 30%', bg:'rgba(34,197,94,0.1)', border:'rgba(34,197,94,0.4)', txt:'#22c55e', pt:'3점'}
+                       : i >= sorted.length - bot30 ? {label:'하위 30%', bg:'rgba(148,163,184,0.08)', border:'rgba(148,163,184,0.3)', txt:'#94a3b8', pt:'1점'}
+                       : {label:'중위', bg:'rgba(59,130,246,0.08)', border:'rgba(59,130,246,0.3)', txt:'#3b82f6', pt:'2점'};
+            return `<div style="background:${tier.bg};border:1px solid ${tier.border};border-radius:10px;padding:8px 14px;min-width:110px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:3px;">
+                <span style="font-weight:700;font-size:13px;">${p.name}</span>
+                <span style="font-size:11px;font-weight:700;color:${tier.txt};">${tier.pt}</span>
+              </div>
+              <div style="font-size:10px;color:var(--text3);">에버 <b style="font-family:'JetBrains Mono',monospace;color:${tier.txt};">${Math.round(p.avg)}</b>${!noHandi?` · 핸디 ${p.handi}`:''}</div>
+              <div style="font-size:9px;color:${tier.txt};margin-top:2px;">${tier.label}</div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`;
+    }).join('')}
+  </div>` : '';
+
+  const teamSection = teams.length > 0 ? `
   <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:20px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
-      <div style="font-weight:700;font-size:16px;">⚡ 팀 편성 결과 <span style="font-size:12px;color:var(--text3);font-weight:400;">🔗 통합</span></div>
+      <div style="font-weight:700;font-size:16px;">⚡ 팀 편성 결과 <span style="font-size:12px;color:var(--text3);font-weight:400;">🔗 통합</span>${soloGroups.length>0?` <span style="font-size:11px;color:#eab308;"> + 개인전 포함</span>`:''}</div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-        <span style="font-size:13px;color:var(--text3);">전체 평균에버: <b style="color:var(--accent);">${Math.round(overallAvg)}</b></span>
+        <span style="font-size:13px;color:var(--text3);">팀전 평균에버: <b style="color:var(--accent);">${teamPlayers.length>0?Math.round(teamPlayers.reduce((a,p)=>a+p.avg,0)/teamPlayers.length):0}</b></span>
         <button onclick="buildTeams()" class="btn btn-secondary" style="font-size:12px;padding:6px 14px;">🔀 다시 편성</button>
         <button onclick="copyTeamResult()" class="btn btn-secondary" style="font-size:12px;padding:6px 14px;">📋 복사</button>
       </div>
@@ -9779,7 +9822,8 @@ function renderTeamResult(teams, players, noHandi, modeLabel) {
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px;">
       ${teams.map((team, i) => {
         const teamAvg = team.members.length > 0 ? Math.round(team.totalAvg / team.members.length) : 0;
-        const diff = teamAvg - Math.round(overallAvg);
+        const tpAvg = teamPlayers.length>0 ? teamPlayers.reduce((a,p)=>a+p.avg,0)/teamPlayers.length : 0;
+        const diff = teamAvg - Math.round(tpAvg);
         const color = colors[i % colors.length];
         const aIn = team.members.filter(p=>p.league==='A').length;
         const bIn = team.members.filter(p=>p.league==='B').length;
@@ -9794,9 +9838,9 @@ function renderTeamResult(teams, players, noHandi, modeLabel) {
                 <div style="font-size:10px;color:var(--text3);">평균에버 (${diff>0?'+':''}${diff})</div>
               </div>
             </div>
-            <div style="display:flex;gap:6px;">
-              <span style="font-size:10px;padding:2px 7px;border-radius:6px;background:rgba(59,130,246,0.15);color:#3b82f6;border:1px solid rgba(59,130,246,0.3);">A ${aIn}명</span>
-              <span style="font-size:10px;padding:2px 7px;border-radius:6px;background:rgba(34,197,94,0.15);color:#22c55e;border:1px solid rgba(34,197,94,0.3);">B ${bIn}명</span>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <span style="font-size:10px;color:#3b82f6;">A:${aIn}</span>
+              <span style="font-size:10px;color:#22c55e;">B:${bIn}</span>
               ${!noHandi ? `<span style="font-size:10px;padding:2px 7px;border-radius:6px;background:rgba(249,115,22,0.1);color:var(--accent);border:1px solid rgba(249,115,22,0.3);">팀핸디 ${teamHandi}</span>` : ""}
             </div>
           </div>
@@ -9820,6 +9864,7 @@ function renderTeamResult(teams, players, noHandi, modeLabel) {
       }).join('')}
     </div>
   </div>
+
   <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;">
     <div style="font-weight:700;font-size:14px;margin-bottom:14px;">📊 팀별 평균에버 비교</div>
     ${teams.map((team, i) => {
@@ -9839,15 +9884,39 @@ function renderTeamResult(teams, players, noHandi, modeLabel) {
         <div style="font-size:11px;color:var(--text3);white-space:nowrap;">A:${aIn} B:${bIn}</div>
       </div>`;
     }).join('')}
-  </div>`;
+  </div>` : (soloGroups.length > 0 ? `
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px 20px;text-align:center;">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+      <span style="font-size:13px;color:var(--text3);">전원 개인전으로 진행됩니다</span>
+      <div style="display:flex;gap:8px;">
+        <button onclick="buildTeams()" class="btn btn-secondary" style="font-size:12px;padding:6px 14px;">🔀 다시 편성</button>
+        <button onclick="copyTeamResult()" class="btn btn-secondary" style="font-size:12px;padding:6px 14px;">📋 복사</button>
+      </div>
+    </div>
+  </div>` : '');
 
-  window._lastTeamResult = teams.map((team, i) => {
+  result.innerHTML = soloSection + teamSection;
+
+  const soloText = soloGroups.map(g => {
+    const sorted = [...g.members].sort((a,b) => b.avg - a.avg);
+    const top30 = Math.ceil(sorted.length * 0.3);
+    const bot30 = Math.floor(sorted.length * 0.3);
+    return `[🏆 개인전 · ${g.label}]\n${sorted.map((p,i) => {
+      const tier = i < top30 ? '상위30%(3점)' : i >= sorted.length-bot30 ? '하위30%(1점)' : '중위(2점)';
+      return `  ${i+1}. ${p.name} (에버${Math.round(p.avg)}${!noHandi?' 핸디'+p.handi:''}) - ${tier}`;
+    }).join('\n')}`;
+  }).join('\n\n');
+
+  const teamText = teams.map((team) => {
     const teamAvg = team.members.length > 0 ? Math.round(team.totalAvg / team.members.length) : 0;
     return `[${team.name}] 평균에버: ${teamAvg}\n${team.members.map((p,r)=>`  ${r+1}. [${p.league}] ${p.name} (에버${Math.round(p.avg)} 핸디${p.handi})`).join('\n')}`;
   }).join('\n\n');
+
+  window._lastTeamResult = [soloText, teamText].filter(Boolean).join('\n\n');
 }
 
-function renderTeamResultSplit(aTeams, bTeams, aPlayers, bPlayers, noHandi) {
+function renderTeamResultSplit(aTeams, bTeams, aPlayers, bPlayers, noHandi, splitSoloPlayers) {
+  splitSoloPlayers = splitSoloPlayers || [];
   const result = document.getElementById('tb_result');
   const aAvg = aPlayers.length ? Math.round(aPlayers.reduce((s,p)=>s+p.avg,0)/aPlayers.length) : 0;
   const bAvg = bPlayers.length ? Math.round(bPlayers.reduce((s,p)=>s+p.avg,0)/bPlayers.length) : 0;
@@ -9906,10 +9975,30 @@ function renderTeamResultSplit(aTeams, bTeams, aPlayers, bPlayers, noHandi) {
     }).join('');
   }
 
-  result.innerHTML = `
+  const splitSoloHTML = splitSoloPlayers.length > 0 ? `
+  <div style="background:var(--card);border:2px solid rgba(234,179,8,0.4);border-radius:16px;padding:20px;margin-bottom:20px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
+      <div style="font-size:18px;">🏆</div>
+      <div style="font-weight:700;font-size:15px;color:#eab308;">개인전 선수</div>
+      <span style="font-size:11px;padding:2px 9px;border-radius:20px;background:rgba(234,179,8,0.12);color:#eab308;border:1px solid rgba(234,179,8,0.35);">홀수 자동 처리</span>
+    </div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:10px;">인원 홀수로 개인전 진행 · 상위30%=3점 · 중위40%=2점 · 하위30%=1점</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;">
+      ${splitSoloPlayers.map(p => {
+        const lColor = p.league === 'A' ? '#3b82f6' : '#22c55e';
+        return `<div style="background:rgba(234,179,8,0.08);border:1px solid rgba(234,179,8,0.35);border-radius:10px;padding:8px 14px;display:flex;align-items:center;gap:8px;">
+          <span style="font-size:9px;padding:1px 5px;border-radius:5px;background:${lColor}20;color:${lColor};border:1px solid ${lColor}33;">${p.league}</span>
+          <span style="font-weight:700;font-size:13px;">${p.name}</span>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#eab308;">에버 ${Math.round(p.avg)}</span>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>` : '';
+
+  result.innerHTML = splitSoloHTML + `
   <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:20px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
-      <div style="font-weight:700;font-size:16px;">⚡ 팀 편성 결과 <span style="font-size:12px;color:var(--text3);font-weight:400;">✂️ 분리</span></div>
+      <div style="font-weight:700;font-size:16px;">⚡ 팀 편성 결과 <span style="font-size:12px;color:var(--text3);font-weight:400;">✂️ 분리</span>${splitSoloPlayers.length>0?` <span style="font-size:11px;color:#eab308;"> + 개인전 ${splitSoloPlayers.length}명</span>`:''}</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <button onclick="buildTeams()" class="btn btn-secondary" style="font-size:12px;padding:6px 14px;">🔀 다시 편성</button>
         <button onclick="copyTeamResult()" class="btn btn-secondary" style="font-size:12px;padding:6px 14px;">📋 복사</button>
@@ -9923,7 +10012,7 @@ function renderTeamResultSplit(aTeams, bTeams, aPlayers, bPlayers, noHandi) {
         <span style="font-size:13px;color:var(--text3);">평균에버 <b style="color:#3b82f6;">${aAvg}</b></span>
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;">
-        ${teamCards(aTeams, aColors, 'A')}
+        ${aTeams.length > 0 ? teamCards(aTeams, aColors, 'A') : '<div style="color:var(--text3);font-size:13px;padding:12px;">A그룹 인원 없음</div>'}
       </div>
     </div>
 
@@ -9937,7 +10026,7 @@ function renderTeamResultSplit(aTeams, bTeams, aPlayers, bPlayers, noHandi) {
         <span style="font-size:13px;color:var(--text3);">평균에버 <b style="color:#22c55e;">${bAvg}</b></span>
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;">
-        ${teamCards(bTeams, bColors, 'B')}
+        ${bTeams.length > 0 ? teamCards(bTeams, bColors, 'B') : '<div style="color:var(--text3);font-size:13px;padding:12px;">B그룹 인원 없음</div>'}
       </div>
     </div>
   </div>
@@ -9956,7 +10045,7 @@ function renderTeamResultSplit(aTeams, bTeams, aPlayers, bPlayers, noHandi) {
   window._lastTeamResult = allTeams.map(team => {
     const teamAvg = team.members.length > 0 ? Math.round(team.totalAvg / team.members.length) : 0;
     return `[${team.name}] 평균에버: ${teamAvg}\n${team.members.map((p,r)=>`  ${r+1}. ${p.name} (에버${Math.round(p.avg)} 핸디${p.handi})`).join('\n')}`;
-  }).join('\n\n');
+  }).concat(splitSoloPlayers.length > 0 ? [`\n[🏆 개인전]\n${splitSoloPlayers.map((p,r)=>`  ${r+1}. [${p.league}] ${p.name} (에버${Math.round(p.avg)} 핸디${p.handi})`).join('\n')}\n  ※ 점수기준: 상위30%=3점, 중위40%=2점, 하위30%=1점`] : []).join('\n\n');
 }
 
 function copyTeamResult() {

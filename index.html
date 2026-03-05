@@ -4932,7 +4932,7 @@
 
 // ── API 키 관리 ────────────────────────────────────────────
 function getApiKey() {
-  return localStorage.getItem('anthropic_api_key') || '';
+  return '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';
 }
 
 function updateApiKeyBadge() {
@@ -5650,28 +5650,36 @@ async function recognizeScores(dataUrl) {
   const loading = document.getElementById('loading');
   loading.classList.add('show');
   document.getElementById('scoreEditor').classList.remove('show');
-
-  const setMsg = msg => { const el = document.getElementById('ocrProgressMsg'); if(el) el.textContent = msg; };
-
   try {
-    setMsg('이미지 분석 중... (최초 실행 시 언어팩 다운로드로 30초 정도 걸릴 수 있습니다)');
+    const headers = getApiHeaders();
+    const base64 = dataUrl.split(',')[1];
+    const mediaType = dataUrl.split(';')[0].split(':')[1];
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST', headers,
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514', max_tokens: 1500,
+        messages: [{ role: 'user', content: [
+          { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
+          { type: 'text', text: `볼링 점수표 이미지에서 선수별 점수를 추출해주세요.
 
-    const { data: { text } } = await Tesseract.recognize(dataUrl, 'kor+eng', {
-      logger: m => {
-        if(m.status === 'recognizing text') setMsg(`인식 중... ${Math.round(m.progress * 100)}%`);
-      }
+규칙:
+- 이름은 이미지 그대로 한글로 (동그라미 표시된 이름도 포함)
+- 숫자 정확히: 6↔8, 1↔7, 0↔6 혼동 주의
+- 점수 범위 50~300 (볼링 최고점 300)
+- g1/g2/g3 없으면 0, total 없으면 g1+g2+g3
+- 코드블록 없이 순수 JSON만 반환
+
+{"scores":[{"name":"이름","g1":숫자,"g2":숫자,"g3":숫자,"total":숫자}]}` }
+        ]}]
+      })
     });
-
-    setMsg('점수 추출 중...');
-    const scores = parseOcrText(text);
-    renderScoreEditor(scores);
-
-    if(scores.length > 0) {
-      toast(`${scores.length}명 인식 완료! 결과를 확인하고 수정하세요.`);
-    } else {
-      toast('자동 인식이 어렵습니다. 직접 입력해주세요.', 'error');
-      renderScoreEditor([]);
-    }
+    const data = await response.json();
+    const text = data.content?.[0]?.text || '';
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if(!jsonMatch) throw new Error('파싱 실패');
+    const parsed = JSON.parse(jsonMatch[0]);
+    renderScoreEditor(parsed.scores || []);
+    toast(`${(parsed.scores||[]).length}명 인식 완료!`);
   } catch(err) {
     console.error(err);
     toast('인식 실패. 수동으로 입력해주세요.', 'error');
@@ -5679,68 +5687,6 @@ async function recognizeScores(dataUrl) {
   } finally {
     loading.classList.remove('show');
   }
-}
-
-function parseOcrText(text) {
-  const data = loadData();
-  const memberNames = Object.keys(data.members || BASE_PLAYERS);
-  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-  const scores = [];
-
-  // 숫자만 있는 라인 패턴 찾기
-  const numRe = /\b([1-2]?\d{2}|[3][0][0])\b/g;
-
-  // 회원 이름이 포함된 라인 기반으로 파싱
-  for(let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    // 이름 매칭
-    const matchedName = memberNames.find(n => line.includes(n) || similarity(n, line) > 0.7);
-    if(!matchedName) continue;
-
-    // 해당 라인과 다음 1~2줄에서 숫자 추출
-    const context = lines.slice(i, i+3).join(' ');
-    const nums = [];
-    let m;
-    const re = /\b([1-9]\d{0,2}|300)\b/g;
-    while((m = re.exec(context)) !== null) {
-      const n = parseInt(m[1]);
-      if(n >= 50 && n <= 300) nums.push(n);
-    }
-
-    if(nums.length >= 3) {
-      const g1 = nums[0], g2 = nums[1], g3 = nums[2];
-      const total = nums[3] || (g1+g2+g3);
-      scores.push({ name: matchedName, g1, g2, g3, total: g1+g2+g3 });
-    } else if(nums.length > 0) {
-      scores.push({ name: matchedName, g1: nums[0]||0, g2: nums[1]||0, g3: nums[2]||0, total: (nums[0]||0)+(nums[1]||0)+(nums[2]||0) });
-    }
-  }
-
-  // 이름 없이 숫자만 있는 경우: 행 단위로 파싱 시도
-  if(scores.length === 0) {
-    for(const line of lines) {
-      const nums = [];
-      let m;
-      const re = /\b([1-9]\d{0,2}|300)\b/g;
-      while((m = re.exec(line)) !== null) {
-        const n = parseInt(m[1]);
-        if(n >= 50 && n <= 300) nums.push(n);
-      }
-      if(nums.length >= 3) {
-        scores.push({ name: '', g1: nums[0], g2: nums[1], g3: nums[2], total: nums[0]+nums[1]+nums[2] });
-      }
-    }
-  }
-
-  return scores;
-}
-
-function similarity(a, b) {
-  // 간단한 포함 여부 체크
-  if(b.includes(a) || a.includes(b)) return 0.9;
-  let match = 0;
-  for(const ch of a) if(b.includes(ch)) match++;
-  return match / Math.max(a.length, 1);
 }
 
 function renderScoreEditor(scores) {

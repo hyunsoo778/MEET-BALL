@@ -3708,6 +3708,7 @@
     <button id="moneytab_prizes" class="money-tab" onclick="switchMoneyTab('prizes')">🏆 상금</button>
     <button id="moneytab_tourney" class="money-tab" onclick="switchMoneyTab('tourney')">🗳️ 대회참가비</button>
     <button id="moneytab_sponsor" class="money-tab" onclick="switchMoneyTab('sponsor')">🎁 찬조</button>
+    <button id="moneytab_txscan" class="money-tab admin-only" onclick="switchMoneyTab('txscan')" style="display:none;background:linear-gradient(135deg,rgba(249,115,22,0.15),rgba(59,130,246,0.1));border:1px solid rgba(249,115,22,0.4);color:var(--accent);">🤖 거래내역 분석</button>
   </div>
   <!-- 회비 패널 -->
   <div id="moneyPanel_dues">
@@ -4509,6 +4510,10 @@
         
       </div>
   </div></div>
+  </div>
+  <!-- 거래내역 분석 패널 -->
+  <div id="moneyPanel_txscan" style="display:none;">
+    <div id="txscanContent"></div>
   </div>
   <!-- 대회참가비 패널 -->
   <div id="moneyPanel_tourney" style="display:none;">
@@ -5377,6 +5382,9 @@ function checkAdminPw() {
     document.getElementById('uploadContent').style.display = 'block';
     document.getElementById('membersNavBtn').style.display = 'inline-flex';
     document.getElementById('dataMenuBtn').style.display = 'inline-flex';
+    // 거래내역 분석 탭 표시
+    const txBtn = document.getElementById('moneytab_txscan');
+    if(txBtn) txBtn.style.display = '';
     toast('관리자 모드 활성화 ✓', 'success');
     refreshAll();
   } else {
@@ -5406,6 +5414,11 @@ function doLogout() {
   document.getElementById('membersNavBtn').style.display = 'none';
   document.getElementById('dataMenuBtn').style.display = 'none';
   document.getElementById('dataMenu').style.display = 'none';
+  // 거래내역 탭 숨기기
+  const txBtn = document.getElementById('moneytab_txscan');
+  if(txBtn) txBtn.style.display = 'none';
+  // txscan 탭에 있으면 dues로 이동
+  if(_currentMoneyTab === 'txscan') switchMoneyTab('dues');
   document.getElementById('uploadLocked').style.display = 'flex';
   document.getElementById('uploadContent').style.display = 'none';
   if(document.getElementById('members').classList.contains('active')) {
@@ -5914,7 +5927,7 @@ function showSection(id, btn) {
 let _currentMoneyTab = 'dues';
 function switchMoneyTab(tab) {
   _currentMoneyTab = tab;
-  ['dues','fines','prizes','tourney','sponsor'].forEach(t => {
+  ['dues','fines','prizes','tourney','sponsor','txscan'].forEach(t => {
     const btn = document.getElementById('moneytab_' + t);
     if(btn) btn.classList.toggle('active', t === tab);
     const panel = document.getElementById('moneyPanel_' + t);
@@ -5925,6 +5938,7 @@ function switchMoneyTab(tab) {
   if(tab==='prizes')  renderPrizes();
   if(tab==='tourney') renderTourney();
   if(tab==='sponsor') renderSponsor();
+  if(tab==='txscan')  renderTxScan();
 }
 
 // ── 투표 탭 전환 ──
@@ -7493,6 +7507,518 @@ function renderSponsor() {
           style="background:none;border:1px solid rgba(239,68,68,0.3);color:var(--red);border-radius:6px;padding:2px 8px;font-size:11px;cursor:pointer;">✕</button>` : ''}
       </div>`).join('')}
   </div>`;
+}
+
+// ── 🤖 거래내역 AI 분석 ─────────────────────────────────────
+const TX_STORAGE_KEY = 'bowlingApp_txHistory';
+function loadTxHistory() {
+  try { const r = localStorage.getItem(TX_STORAGE_KEY); if(r) return JSON.parse(r); } catch(e) {}
+  return [];
+}
+function saveTxHistory(list) {
+  try { localStorage.setItem(TX_STORAGE_KEY, JSON.stringify(list)); } catch(e) {}
+}
+
+// 분석 결과 임시 저장
+window._txAnalysisResult = null;
+
+function renderTxScan() {
+  const container = document.getElementById('txscanContent');
+  if(!container) return;
+  if(!isAdmin) {
+    container.innerHTML = `<div class="empty"><div class="empty-icon">🔒</div><div class="empty-text">관리자만 사용할 수 있습니다</div></div>`;
+    return;
+  }
+  const history = loadTxHistory();
+  const data = loadData();
+  const members = Object.keys(data.members || BASE_PLAYERS).sort();
+
+  container.innerHTML = `
+  <div style="display:flex;flex-direction:column;gap:20px;">
+
+    <!-- 안내 카드 -->
+    <div style="background:linear-gradient(135deg,rgba(249,115,22,0.08),rgba(59,130,246,0.06));border:1px solid rgba(249,115,22,0.3);border-radius:16px;padding:20px;">
+      <div style="font-weight:700;font-size:15px;margin-bottom:8px;display:flex;align-items:center;gap:8px;">
+        <span style="font-size:20px;">🤖</span> AI 거래내역 자동 분석
+      </div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.7;">
+        은행 거래내역 <b style="color:var(--accent);">스크린샷</b> 또는 <b style="color:var(--accent);">엑셀/CSV</b>를 업로드하면 AI가 자동으로 회비·벌금·상금·찬조를 분류하고 적용 여부를 확인합니다.
+      </div>
+    </div>
+
+    <!-- 파일 업로드 영역 -->
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;">
+      <div style="font-weight:700;font-size:14px;margin-bottom:16px;">📂 파일 업로드</div>
+      <div id="tx_dropzone" style="border:2px dashed var(--border);border-radius:12px;padding:40px 20px;text-align:center;cursor:pointer;transition:all .3s;position:relative;"
+        onclick="document.getElementById('tx_fileInput').click()"
+        ondragover="event.preventDefault();this.style.borderColor='var(--accent)';this.style.background='rgba(249,115,22,0.05)'"
+        ondragleave="this.style.borderColor='var(--border)';this.style.background=''"
+        ondrop="event.preventDefault();this.style.borderColor='var(--border)';this.style.background='';handleTxFile(event.dataTransfer.files[0])">
+        <div style="font-size:40px;margin-bottom:12px;">📄</div>
+        <div style="font-weight:700;font-size:15px;margin-bottom:6px;">파일을 여기에 드래그하거나 클릭하여 선택</div>
+        <div style="font-size:12px;color:var(--text3);">이미지(JPG, PNG) · 엑셀(XLSX, XLS) · CSV · 텍스트(TXT)</div>
+        <input type="file" id="tx_fileInput" style="display:none" accept="image/*,.xlsx,.xls,.csv,.txt"
+          onchange="handleTxFile(this.files[0])">
+      </div>
+      <!-- 미리보기 -->
+      <div id="tx_preview" style="margin-top:14px;display:none;">
+        <img id="tx_previewImg" style="max-width:100%;max-height:280px;border-radius:10px;border:1px solid var(--border);">
+        <div id="tx_previewText" style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text2);white-space:pre-wrap;max-height:200px;overflow-y:auto;display:none;"></div>
+      </div>
+    </div>
+
+    <!-- 텍스트 직접 입력 -->
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;">
+      <div style="font-weight:700;font-size:14px;margin-bottom:12px;">✏️ 거래내역 직접 붙여넣기</div>
+      <textarea id="tx_textInput" placeholder="거래내역을 복사해서 붙여넣으세요&#10;예)&#10;03/01 홍길동 30,000원 입금&#10;03/01 박철수 2,000원 입금 벌금&#10;03/02 이영희 30,000원 입금 회비&#10;03/02 찬조 김민수 50,000원" rows="6"
+        style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:12px 14px;border-radius:10px;font-size:13px;outline:none;font-family:'JetBrains Mono',monospace;resize:vertical;line-height:1.6;transition:border-color .2s;"
+        onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"></textarea>
+      <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-primary" onclick="analyzeTxText()">🤖 텍스트 분석</button>
+        <button class="btn btn-secondary" onclick="document.getElementById('tx_textInput').value=''">🗑️ 초기화</button>
+      </div>
+    </div>
+
+    <!-- AI 분석 로딩 -->
+    <div id="tx_loading" style="display:none;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;text-align:center;">
+      <div style="font-size:32px;margin-bottom:12px;animation:spin .8s linear infinite;display:inline-block;">⚙️</div>
+      <div style="font-weight:700;font-size:15px;margin-bottom:6px;">AI 분석 중...</div>
+      <div style="font-size:13px;color:var(--text3);">거래내역을 분류하고 있습니다. 잠시만 기다려주세요.</div>
+    </div>
+
+    <!-- 분석 결과 -->
+    <div id="tx_result" style="display:none;"></div>
+
+    <!-- 적용 이력 -->
+    ${history.length > 0 ? `
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden;">
+      <div style="padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+        <div style="font-weight:700;font-size:14px;">📋 분석 적용 이력 (최신 10건)</div>
+        <button onclick="clearTxHistory()" style="background:none;border:1px solid rgba(239,68,68,0.3);color:var(--red);border-radius:6px;padding:3px 10px;font-size:11px;cursor:pointer;">전체 삭제</button>
+      </div>
+      ${history.slice(-10).reverse().map(h => `
+      <div style="padding:12px 20px;border-bottom:1px solid rgba(30,45,69,0.4);display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span style="font-size:18px;">${{dues:'💳',fine:'💸',prize:'🏆',sponsor:'🎁'}[h.category]||'📌'}</span>
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:700;font-size:13px;">${h.name} · ${h.label}</div>
+          <div style="font-size:11px;color:var(--text3);">${h.appliedAt} · ${h.memo||''}</div>
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:13px;color:var(--accent);">${(h.amount||0).toLocaleString()}원</div>
+        <span style="font-size:11px;padding:2px 8px;border-radius:10px;background:rgba(34,197,94,0.15);color:var(--green);border:1px solid rgba(34,197,94,0.3);">✓ 적용됨</span>
+      </div>`).join('')}
+    </div>` : ''}
+  </div>`;
+}
+
+function handleTxFile(file) {
+  if(!file) return;
+  const ext = file.name.split('.').pop().toLowerCase();
+  const preview = document.getElementById('tx_preview');
+  const previewImg = document.getElementById('tx_previewImg');
+  const previewText = document.getElementById('tx_previewText');
+  previewImg.style.display = 'none';
+  previewText.style.display = 'none';
+  preview.style.display = 'block';
+
+  if(['jpg','jpeg','png','gif','webp','bmp'].includes(ext)) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      previewImg.src = e.target.result;
+      previewImg.style.display = 'block';
+      analyzeTxImage(e.target.result, file.type || 'image/jpeg');
+    };
+    reader.readAsDataURL(file);
+  } else if(['xlsx','xls'].includes(ext)) {
+    toast('엑셀 파일은 내용을 텍스트로 변환 중...', 'success');
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        // SheetJS 없을 경우 대비: 파일명과 기본 안내 표시
+        previewText.textContent = '[엑셀 파일] ' + file.name + '\n내용을 텍스트 입력란에 직접 붙여넣거나 CSV로 변환 후 업로드해주세요.';
+        previewText.style.display = 'block';
+        toast('엑셀은 CSV로 저장 후 업로드하거나 텍스트로 붙여넣기 해주세요.', 'error');
+      } catch(err) { toast('엑셀 파싱 오류', 'error'); }
+    };
+    reader.readAsArrayBuffer(file);
+  } else if(['csv','txt'].includes(ext)) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const text = e.target.result;
+      previewText.textContent = text.slice(0, 2000) + (text.length > 2000 ? '\n...(이하 생략)' : '');
+      previewText.style.display = 'block';
+      document.getElementById('tx_textInput').value = text;
+      toast('파일 내용이 텍스트 입력란에 로드됐습니다. 분석 버튼을 눌러주세요!', 'success');
+    };
+    reader.readAsText(file, 'utf-8');
+  } else {
+    toast('지원하지 않는 파일 형식입니다. 이미지, CSV, TXT 파일을 사용해주세요.', 'error');
+  }
+}
+
+async function analyzeTxImage(dataUrl, mimeType) {
+  const loading = document.getElementById('tx_loading');
+  const resultDiv = document.getElementById('tx_result');
+  loading.style.display = 'block';
+  resultDiv.style.display = 'none';
+
+  const data = loadData();
+  const memberNames = Object.keys(data.members || BASE_PLAYERS).join(', ');
+  const prompt = buildTxAnalysisPrompt(memberNames);
+
+  try {
+    const base64 = dataUrl.split(',')[1];
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: mimeType, data: base64 } },
+            { type: 'text', text: prompt }
+          ]
+        }]
+      })
+    });
+    const json = await resp.json();
+    const text = json.content?.map(c => c.text||'').join('') || '';
+    parseTxAnalysisResult(text);
+  } catch(e) {
+    loading.style.display = 'none';
+    toast('AI 분석 오류: ' + e.message, 'error');
+  }
+}
+
+async function analyzeTxText() {
+  const text = document.getElementById('tx_textInput').value.trim();
+  if(!text) { toast('거래내역을 입력해주세요.', 'error'); return; }
+  const loading = document.getElementById('tx_loading');
+  const resultDiv = document.getElementById('tx_result');
+  loading.style.display = 'block';
+  resultDiv.style.display = 'none';
+
+  const data = loadData();
+  const memberNames = Object.keys(data.members || BASE_PLAYERS).join(', ');
+  const prompt = buildTxAnalysisPrompt(memberNames) + '\n\n거래내역:\n' + text;
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const json = await resp.json();
+    const resText = json.content?.map(c => c.text||'').join('') || '';
+    parseTxAnalysisResult(resText);
+  } catch(e) {
+    loading.style.display = 'none';
+    toast('AI 분석 오류: ' + e.message, 'error');
+  }
+}
+
+function buildTxAnalysisPrompt(memberNames) {
+  return `당신은 볼링 동호회 회비 관리 AI입니다. 아래 거래내역을 분석하여 각 항목을 분류해주세요.
+
+회원 명단: ${memberNames}
+
+분류 기준:
+- dues(회비): 월 정기 납부, 30,000원 단위, "회비", "월회비" 키워드
+- fine(벌금): 소액(1,000~10,000원), "벌금", "미투표", "클럽티", "지각", "불참" 키워드  
+- prize(상금): "상금", "1위", "2위", "퍼펙트", "하이게임", "뽑기" 키워드 또는 수령(출금)
+- sponsor(찬조): "찬조", "후원", "협찬", 큰 금액 입금 키워드
+
+⚡ 금액 주의: 30,000원 배수(60,000/90,000 등)의 회비 입금은 여러 명이 같이 낸 것일 수 있습니다. 이 경우 canSplit:true로 표시해주세요.
+
+반드시 아래 JSON 형식으로만 답변하세요. 다른 텍스트 없이 JSON만:
+{
+  "items": [
+    {
+      "name": "회원이름(모르면 null)",
+      "amount": 금액(숫자),
+      "category": "dues|fine|prize|sponsor|unknown",
+      "label": "분류 이유 한 줄 설명",
+      "date": "날짜(없으면 null)",
+      "memo": "메모",
+      "confidence": "high|medium|low",
+      "month": 월(회비인 경우 해당 월 숫자, 없으면 null),
+      "direction": "in|out",
+      "canSplit": false
+    }
+  ],
+  "summary": "전체 분석 요약 1-2문장"
+}`;
+}
+
+function parseTxAnalysisResult(raw) {
+  const loading = document.getElementById('tx_loading');
+  const resultDiv = document.getElementById('tx_result');
+  loading.style.display = 'none';
+
+  let parsed;
+  try {
+    const cleaned = raw.replace(/```json|```/g,'').trim();
+    parsed = JSON.parse(cleaned);
+  } catch(e) {
+    resultDiv.style.display = 'block';
+    resultDiv.innerHTML = `
+    <div style="background:var(--card);border:1px solid rgba(239,68,68,0.3);border-radius:16px;padding:20px;">
+      <div style="font-weight:700;color:var(--red);margin-bottom:8px;">⚠️ 분석 결과 파싱 오류</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:12px;">AI 응답을 해석하지 못했습니다. 거래내역 형식을 확인하거나 직접 텍스트로 입력해주세요.</div>
+      <div style="background:var(--bg3);border-radius:8px;padding:12px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text3);white-space:pre-wrap;max-height:200px;overflow-y:auto;">${raw.slice(0,500)}</div>
+    </div>`;
+    return;
+  }
+
+  window._txAnalysisResult = parsed;
+
+  // 30,000원 배수 회비 → 수동 분리 가능 표시
+  (parsed.items || []).forEach(it => {
+    if(it.category === 'dues' && it.amount && it.amount % 30000 === 0 && it.amount > 30000) {
+      it.canSplit = true;
+      it._splitCount = it.amount / 30000;
+    }
+  });
+
+
+  // renderTxResultUI로 위임
+  renderTxResultUI(parsed);
+
+function toggleSplitPanel(idx) {
+  const panel = document.getElementById('tx_split_' + idx);
+  if(panel) panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+}
+
+function applySplit(idx) {
+  const result = window._txAnalysisResult;
+  if(!result) return;
+  const orig = result.items[idx];
+  if(!orig || !orig.canSplit) return;
+  const count = orig._splitCount || 2;
+  const newItems = [];
+  for(let si = 0; si < count; si++) {
+    const nameEl  = document.getElementById('tx_sp_name_' + idx + '_' + si);
+    const monthEl = document.getElementById('tx_sp_month_' + idx + '_' + si);
+    const name  = nameEl ? nameEl.value : null;
+    const month = monthEl ? parseInt(monthEl.value) : (orig.month || new Date().getMonth()+1);
+    if(!name) { toast((si+1) + '번째 이름을 선택해주세요.', 'error'); return; }
+    newItems.push(Object.assign({}, orig, { name, amount: 30000, month, canSplit: false, isSplit: true,
+      label: name + ' ' + month + '월 회비 (분리)', confidence: 'high' }));
+  }
+  result.items.splice(idx, 1, ...newItems);
+  renderTxResultUI(result);
+  toast('✂️ ' + count + '건으로 분리 완료!');
+}
+
+function renderTxResultUI(parsed) {
+  const resultDiv = document.getElementById('tx_result');
+  if(!resultDiv) return;
+  window._txAnalysisResult = parsed;
+  const catInfo = {
+    dues:    { icon:'💳', label:'회비',   color:'var(--blue)',   bg:'rgba(59,130,246,0.12)'  },
+    fine:    { icon:'💸', label:'벌금',   color:'var(--red)',    bg:'rgba(239,68,68,0.1)'    },
+    prize:   { icon:'🏆', label:'상금',   color:'var(--yellow)', bg:'rgba(234,179,8,0.1)'   },
+    sponsor: { icon:'🎁', label:'찬조',   color:'#facc15',       bg:'rgba(250,204,21,0.08)'  },
+    unknown: { icon:'❓', label:'미분류', color:'var(--text3)',  bg:'rgba(100,116,139,0.08)' },
+  };
+  const items = parsed.items || [];
+  const bycat = {};
+  items.forEach(function(it) { bycat[it.category] = (bycat[it.category]||0) + 1; });
+  const allMembers = Object.keys(loadData().members||BASE_PLAYERS).sort();
+  const memberOpts = allMembers.map(function(m){ return '<option value="' + m + '">' + m + '</option>'; }).join('');
+
+  function makeMemberSel(selId, selName) {
+    return '<select id="' + selId + '" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:6px;font-size:12px;outline:none;font-family:inherit;">'
+      + '<option value="">이름 선택</option>'
+      + allMembers.map(function(m){ return '<option value="' + m + '"' + (m===selName?' selected':'') + '>' + m + '</option>'; }).join('')
+      + '</select>';
+  }
+  function makeMonthSel(selId, curMonth) {
+    return '<select id="' + selId + '" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:6px;font-size:12px;outline:none;font-family:inherit;">'
+      + [1,2,3,4,5,6,7,8,9,10,11,12].map(function(m){ return '<option value="' + m + '"' + (m==curMonth?' selected':'') + '>' + m + '월</option>'; }).join('')
+      + '</select>';
+  }
+
+  var itemsHtml = items.map(function(it, idx) {
+    var ci = catInfo[it.category]||catInfo.unknown;
+    var confColor = it.confidence==='high'?'var(--green)':it.confidence==='medium'?'var(--yellow)':'var(--text3)';
+    var confLabel = it.confidence==='high'?'높음':it.confidence==='medium'?'보통':'낮음';
+    var amtColor = it.direction==='out'?'var(--red)':'var(--green)';
+    var amtSign  = it.direction==='out'?'-':'+';
+    var splitRows = '';
+    if(it.canSplit) {
+      var cnt = it._splitCount||2;
+      for(var si=0; si<cnt; si++) {
+        splitRows += '<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">'
+          + '<span style="font-size:12px;color:var(--text3);width:40px;">' + (si+1) + '번째</span>'
+          + makeMemberSel('tx_sp_name_'+idx+'_'+si, si===0?it.name:null)
+          + makeMonthSel('tx_sp_month_'+idx+'_'+si, it.month||new Date().getMonth()+1)
+          + '<span style="font-family:JetBrains Mono,monospace;font-size:12px;color:var(--blue);">30,000원</span>'
+          + '</div>';
+      }
+    }
+    return '<div id="tx_item_' + idx + '" style="padding:14px 20px;border-bottom:1px solid rgba(30,45,69,0.4);display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;">'
+      + '<input type="checkbox" id="tx_chk_' + idx + '" ' + (it.canSplit?'':'checked') + ' style="margin-top:3px;accent-color:var(--accent);width:16px;height:16px;cursor:pointer;flex-shrink:0;">'
+      + '<div style="font-size:22px;flex-shrink:0;">' + ci.icon + '</div>'
+      + '<div style="flex:1;min-width:180px;">'
+        + '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px;">'
+          + '<span style="font-weight:700;font-size:14px;">' + (it.name||'(이름 미확인)') + '</span>'
+          + '<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:' + ci.bg + ';color:' + ci.color + ';border:1px solid ' + ci.color + '33;">' + ci.label + '</span>'
+          + '<span style="font-size:10px;color:' + confColor + ';">신뢰도: ' + confLabel + '</span>'
+          + (it.isSplit ? '<span style="font-size:10px;padding:2px 7px;border-radius:8px;background:rgba(168,85,247,0.15);color:#a855f7;border:1px solid rgba(168,85,247,0.3);">✂️ 분리됨</span>' : '')
+          + (it.canSplit ? '<span style="font-size:10px;padding:2px 7px;border-radius:8px;background:rgba(234,179,8,0.15);color:var(--yellow);border:1px solid rgba(234,179,8,0.3);">⚠️ ' + (it._splitCount||2) + '명분 · 분리 필요</span>' : '')
+        + '</div>'
+        + '<div style="font-size:12px;color:var(--text3);">' + (it.label||'') + (it.date?' · '+it.date:'') + (it.memo?' · '+it.memo:'') + '</div>'
+        + '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;align-items:center;">'
+          + makeMemberSel('tx_name_'+idx, it.name).replace('>', ' onchange="updateTxItem('+idx+')">')
+          + '<select id="tx_cat_' + idx + '" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:6px;font-size:12px;outline:none;font-family:inherit;" onchange="updateTxItem(' + idx + ')">'
+            + '<option value="dues"' + (it.category==='dues'?' selected':'') + '>💳 회비</option>'
+            + '<option value="fine"' + (it.category==='fine'?' selected':'') + '>💸 벌금</option>'
+            + '<option value="prize"' + (it.category==='prize'?' selected':'') + '>🏆 상금</option>'
+            + '<option value="sponsor"' + (it.category==='sponsor'?' selected':'') + '>🎁 찬조</option>'
+            + '<option value="unknown"' + (it.category==='unknown'?' selected':'') + '>❓ 미분류</option>'
+          + '</select>'
+          + (it.category==='dues' ? makeMonthSel('tx_month_'+idx, it.month||new Date().getMonth()+1) : '')
+          + (it.canSplit ? '<button onclick="toggleSplitPanel('+idx+')" style="background:rgba(168,85,247,0.15);border:1px solid rgba(168,85,247,0.4);color:#a855f7;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;font-weight:700;">✂️ 분리하기</button>' : '')
+        + '</div>'
+        + (it.canSplit ? '<div id="tx_split_' + idx + '" style="display:none;margin-top:10px;background:rgba(168,85,247,0.06);border:1px solid rgba(168,85,247,0.25);border-radius:10px;padding:14px;">'
+          + '<div style="font-size:12px;font-weight:700;color:#a855f7;margin-bottom:10px;">✂️ 분리 설정 · 총 ' + (it.amount||0).toLocaleString() + '원 → 30,000원 × ' + (it._splitCount||2) + '명</div>'
+          + splitRows
+          + '<div style="display:flex;gap:6px;margin-top:6px;">'
+            + '<button onclick="applySplit('+idx+')" style="background:rgba(168,85,247,0.2);border:1px solid rgba(168,85,247,0.5);color:#a855f7;border-radius:6px;padding:5px 14px;font-size:12px;cursor:pointer;font-weight:700;">✅ 분리 확정</button>'
+            + '<button onclick="toggleSplitPanel('+idx+')" style="background:none;border:1px solid var(--border);color:var(--text3);border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;">취소</button>'
+          + '</div>'
+        + '</div>' : '')
+      + '</div>'
+      + '<div style="font-family:JetBrains Mono,monospace;font-weight:700;font-size:16px;color:' + amtColor + ';flex-shrink:0;">' + amtSign + (it.amount||0).toLocaleString() + '원</div>'
+    + '</div>';
+  }).join('');
+
+  resultDiv.innerHTML = '<div style="background:var(--card);border:1px solid rgba(34,197,94,0.3);border-radius:16px;overflow:hidden;">'
+    + '<div style="padding:16px 20px;background:rgba(34,197,94,0.06);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">'
+      + '<div><div style="font-weight:700;font-size:15px;margin-bottom:4px;">🤖 AI 분석 완료 · ' + items.length + '건</div>'
+      + '<div style="font-size:12px;color:var(--text3);">' + (parsed.summary||'') + '</div></div>'
+      + '<div style="display:flex;gap:6px;flex-wrap:wrap;">'
+        + Object.entries(bycat).map(function(e){ var cat=e[0],cnt=e[1],ci=catInfo[cat]||catInfo.unknown; return '<span style="font-size:11px;padding:3px 10px;border-radius:20px;background:'+ci.bg+';color:'+ci.color+';border:1px solid '+ci.color+'33;">'+ci.icon+' '+ci.label+' '+cnt+'건</span>'; }).join('')
+      + '</div>'
+    + '</div>'
+    + '<div id="tx_item_list">' + itemsHtml + '</div>'
+    + '<div style="padding:16px 20px;background:var(--bg3);border-top:1px solid var(--border);display:flex;gap:10px;flex-wrap:wrap;align-items:center;">'
+      + '<button class="btn btn-primary" onclick="applyTxResult()" style="font-size:14px;padding:10px 24px;">✅ 선택 항목 일괄 적용</button>'
+      + '<button class="btn btn-secondary" onclick="toggleAllTxItems(true)">전체 선택</button>'
+      + '<button class="btn btn-secondary" onclick="toggleAllTxItems(false)">전체 해제</button>'
+      + '<span style="font-size:12px;color:var(--text3);margin-left:auto;">⚠️ 분리 필요 항목은 먼저 분리 후 체크하세요</span>'
+    + '</div>'
+  + '</div>';
+}
+
+
+function updateTxItem(idx) {
+  if(!window._txAnalysisResult) return;
+  const nameEl = document.getElementById('tx_name_' + idx);
+  const catEl  = document.getElementById('tx_cat_'  + idx);
+  if(nameEl) window._txAnalysisResult.items[idx].name = nameEl.value;
+  if(catEl)  window._txAnalysisResult.items[idx].category = catEl.value;
+}
+
+function toggleAllTxItems(val) {
+  const items = window._txAnalysisResult?.items || [];
+  items.forEach((_, idx) => {
+    const chk = document.getElementById('tx_chk_' + idx);
+    if(chk) chk.checked = val;
+  });
+}
+
+function applyTxResult() {
+  if(!isAdmin) { toast('관리자만 적용할 수 있습니다.', 'error'); return; }
+  const result = window._txAnalysisResult;
+  if(!result) { toast('분석 결과가 없습니다.', 'error'); return; }
+
+  const items = result.items || [];
+  const history = loadTxHistory();
+  let appliedCount = 0;
+  let skipped = [];
+
+  items.forEach((it, idx) => {
+    const chk = document.getElementById('tx_chk_' + idx);
+    if(!chk || !chk.checked) return;
+    if(it.category === 'unknown') { skipped.push(it); return; }
+    if(!it.name) { skipped.push(it); return; }
+
+    const now = new Date().toLocaleString('ko-KR');
+    const histItem = { name: it.name, category: it.category, label: it.label||it.memo||'', amount: it.amount||0, memo: it.memo, appliedAt: now };
+
+    if(it.category === 'dues') {
+      // 회비 납부 처리
+      const monthEl = document.getElementById('tx_month_' + idx);
+      const month = monthEl ? parseInt(monthEl.value) : (it.month || new Date().getMonth()+1);
+      const dues = loadDues();
+      if(!dues[it.name]) dues[it.name] = {};
+      dues[it.name][month] = true;
+      saveDues(dues);
+      histItem.label = `${month}월 회비`;
+      appliedCount++;
+    } else if(it.category === 'fine') {
+      // 추가 벌금 납부 처리 (기존 벌금 중 이름 매칭해서 납부 처리 시도)
+      const payments = loadFinePayments();
+      const data = loadData();
+      let matched = false;
+      if(data.rounds) {
+        data.rounds.forEach(round => {
+          const key = `${round.id}__${it.name}`;
+          if(!payments[key]) {
+            // 해당 회차에 벌금이 있는 경우 납부 처리 (미납인 경우만)
+            const roundFines = getAllFines ? getAllFines() : [];
+            const hasFine = roundFines.some && roundFines.some(f => f.roundId===round.id && f.name===it.name && !f.paid);
+            if(hasFine) { payments[key] = true; matched = true; }
+          }
+        });
+      }
+      if(matched) { saveFinePayments(payments); }
+      // 추가벌금으로도 등록
+      const extraFines = loadExtraFines();
+      extraFines.push({ id:'ef'+Date.now()+'_'+idx, roundLabel:'거래내역', name:it.name, type:'custom', amount:it.amount||0, paid:true, memo:'[AI분석] '+( it.memo||it.label||'' ) });
+      saveExtraFines(extraFines);
+      appliedCount++;
+    } else if(it.category === 'prize') {
+      const prizes = loadPrizes();
+      prizes.push({ id:'pr'+Date.now()+'_'+idx, roundLabel:'거래내역', name:it.name, amount:it.amount||0, reason:(it.memo||it.label||'거래내역'), paid: it.direction==='out', date: it.date || new Date().toISOString().slice(0,10) });
+      savePrizes(prizes);
+      appliedCount++;
+    } else if(it.category === 'sponsor') {
+      const sponsors = loadSponsors();
+      sponsors.unshift({ id:'sp'+Date.now()+'_'+idx, name:it.name, amount:it.amount||0, reason:(it.memo||it.label||'찬조'), date: it.date || new Date().toISOString().slice(0,10), note:'[AI분석]' });
+      saveSponsors(sponsors);
+      appliedCount++;
+    }
+
+    history.push(histItem);
+  });
+
+  saveTxHistory(history);
+  window._txAnalysisResult = null;
+
+  if(appliedCount > 0) {
+    toast(`✅ ${appliedCount}건 적용 완료!${skipped.length>0?' (미분류/이름없음 '+skipped.length+'건 건너뜀)':''}`, 'success');
+    // 관련 렌더 갱신
+    renderDues(); renderFines(); renderPrizes(); renderSponsor();
+    // 결과 영역 초기화 후 이력 표시
+    setTimeout(() => renderTxScan(), 300);
+  } else {
+    toast('적용할 항목이 없습니다. 이름과 분류를 확인해주세요.', 'error');
+  }
+}
+
+function clearTxHistory() {
+  if(!confirm('분석 적용 이력을 모두 삭제할까요?')) return;
+  saveTxHistory([]);
+  renderTxScan();
+  toast('이력 삭제 완료');
 }
 
 // ── 회원관리 ──────────────────────────────────────────────

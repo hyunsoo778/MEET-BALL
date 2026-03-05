@@ -5599,39 +5599,63 @@ function preprocessImage(dataUrl) {
   });
 }
 
-// 점수 추출 로직 개선: 여러 줄에 흩어진 숫자도 수집
+// 볼링 점수표 파싱: 레인번호/에버리지/합계 제거 후 게임점수만 추출
 function extractBowlingScores(text) {
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
   const rows = [];
 
-  // 전략 1: 한 줄에 숫자 3개 이상 있는 경우 (기존 방식 개선)
   for (const line of lines) {
-    const nums = [];
-    const re = /\b(300|[1-9]\d{1,2})\b/g;
+    // 헤더/타이틀 줄 스킵 (한글만 있거나 레인/플레이어명 포함)
+    if (/레인|플레이어|에버리지|점수표|1G|2G|3G|총점/.test(line)) continue;
+
+    // 소수점 숫자 제거 (에버리지: 225.33 등)
+    const noDecimal = line.replace(/\d+\.\d+/g, '');
+
+    // 숫자 추출 (2~3자리 정수만)
+    const allNums = [];
+    const re = /\b(\d{2,3})\b/g;
     let m;
-    while ((m = re.exec(line)) !== null) {
+    while ((m = re.exec(noDecimal)) !== null) {
       const n = parseInt(m[1]);
-      if (n >= 50 && n <= 300) nums.push(n);
+      // 레인번호(1~20) 제외, 볼링점수 범위(50~300)만
+      if (n >= 50 && n <= 300) allNums.push(n);
     }
-    if (nums.length >= 3) {
-      rows.push({ name: '', g1: nums[0], g2: nums[1], g3: nums[2], total: nums[0]+nums[1]+nums[2] });
-      continue;
+
+    if (allNums.length < 3) continue;
+
+    // 마지막 숫자가 앞 3개의 합이면 합계열 → 제외
+    // 예: [225, 194, 257, 676] → 676 = 225+194+257 이므로 676 제외
+    let g1, g2, g3;
+    if (allNums.length >= 4) {
+      const last = allNums[allNums.length - 1];
+      const sumFirst3 = allNums[allNums.length - 4] + allNums[allNums.length - 3] + allNums[allNums.length - 2];
+      if (Math.abs(last - sumFirst3) <= 2) {
+        // 마지막이 합계 → 앞 3개가 게임점수
+        [g1, g2, g3] = allNums.slice(allNums.length - 4, allNums.length - 1);
+      } else {
+        [g1, g2, g3] = allNums.slice(0, 3);
+      }
+    } else {
+      [g1, g2, g3] = allNums;
     }
-    // 숫자 2개인 경우: 바로 다음 줄에서 나머지 수집 시도 (아래 전략 2)
+
+    if (!g1 || !g2 || !g3) continue;
+    rows.push({ name: '', g1, g2, g3, total: g1 + g2 + g3 });
   }
 
-  // 전략 2: 점수가 여러 줄에 흩어진 경우 → 전체 텍스트에서 유효 숫자 수집
+  // 한 줄 파싱 실패 시 → 전체에서 3개씩 묶기 (fallback)
   if (rows.length === 0) {
+    const noDecimal = text.replace(/\d+\.\d+/g, '');
     const allNums = [];
-    const re = /\b(300|[1-9]\d{1,2})\b/g;
+    const re = /\b(\d{2,3})\b/g;
     let m;
-    while ((m = re.exec(text)) !== null) {
+    while ((m = re.exec(noDecimal)) !== null) {
       const n = parseInt(m[1]);
       if (n >= 50 && n <= 300) allNums.push(n);
     }
-    // 3개씩 묶어서 행 생성
     for (let i = 0; i + 2 < allNums.length; i += 3) {
-      rows.push({ name: '', g1: allNums[i], g2: allNums[i+1], g3: allNums[i+2], total: allNums[i]+allNums[i+1]+allNums[i+2] });
+      const [g1, g2, g3] = allNums.slice(i, i + 3);
+      rows.push({ name: '', g1, g2, g3, total: g1 + g2 + g3 });
     }
   }
 
@@ -5645,59 +5669,23 @@ async function recognizeScores(dataUrl) {
   loading.classList.add('show');
   document.getElementById('scoreEditor').classList.remove('show');
   try {
-    setMsg('🤖 AI로 점수표 분석 중...');
+    setMsg('이미지 전처리 중...');
+    const processedUrl = await preprocessImage(dataUrl);
 
-    // base64 추출
-    const base64 = dataUrl.split(',')[1];
-    const mimeType = dataUrl.split(';')[0].split(':')[1] || 'image/jpeg';
-
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        messages: [{
-          role: 'user',
-          content: [
-            {
-              type: 'image',
-              source: { type: 'base64', media_type: mimeType, data: base64 }
-            },
-            {
-              type: 'text',
-              text: `이 볼링 점수표 이미지에서 각 선수의 점수를 추출해줘.
-반드시 아래 JSON 배열 형식만 출력해. 다른 텍스트는 절대 포함하지 마.
-[{"name":"이름","g1":숫자,"g2":숫자,"g3":숫자,"total":숫자}, ...]
-- 이름은 한국어 그대로
-- g1/g2/g3 는 1게임/2게임/3게임 점수 (없으면 0)
-- total 은 세 게임 합계
-- 점수가 없거나 읽기 어려운 경우 0으로 처리`
-            }
-          ]
-        }]
-      })
+    setMsg('점수 인식 중... (처음엔 30초 정도 소요)');
+    // PSM 4: 한 열의 텍스트로 가정 → 표 행 구조에 적합
+    const { data: { text } } = await Tesseract.recognize(processedUrl, 'kor+eng', {
+      logger: m => { if(m.status === 'recognizing text') setMsg('인식 중... ' + Math.round(m.progress*100) + '%'); },
+      tessedit_pageseg_mode: '4',
     });
 
-    const result = await response.json();
-    const raw = result.content?.map(c => c.text || '').join('').trim();
+    console.log('[OCR 원문]', text); // 디버그용
 
-    let rows = [];
-    try {
-      const clean = raw.replace(/```json|```/g, '').trim();
-      rows = JSON.parse(clean);
-      if (!Array.isArray(rows)) rows = [];
-      // 유효한 행만 필터
-      rows = rows.filter(r => r && (r.g1 > 0 || r.g2 > 0 || r.g3 > 0));
-    } catch(e) {
-      console.error('JSON 파싱 실패:', raw);
-      rows = [];
-    }
-
+    const rows = extractBowlingScores(text);
     const scores = rows.length > 0 ? rows : [{name:'',g1:0,g2:0,g3:0,total:0}];
     renderScoreEditor(scores);
-    if(rows.length > 0) { toast('✅ ' + rows.length + '명 인식 완료! 이름을 확인해주세요.'); }
-    else { toast('AI 인식 실패. 직접 입력해주세요.', 'error'); }
+    if (rows.length > 0) { toast('✅ ' + rows.length + '개 행 추출! 이름을 선택해주세요.'); }
+    else { toast('자동 추출 실패. 직접 입력해주세요.', 'error'); }
   } catch(err) {
     console.error(err);
     toast('인식 실패. 직접 입력해주세요.', 'error');
@@ -5714,49 +5702,38 @@ async function analyzeTxImage(dataUrl, mimeType) {
   resultDiv.style.display = 'none';
 
   try {
-    const base64Tx = dataUrl.split(',')[1];
-    const mimeTx = dataUrl.split(';')[0].split(':')[1] || 'image/jpeg';
-    const data = loadData();
-    const members = Object.keys(data.members || BASE_PLAYERS).sort();
-
-    const txResponse = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        messages: [{
-          role: 'user',
-          content: [
-            {
-              type: 'image',
-              source: { type: 'base64', media_type: mimeTx, data: base64Tx }
-            },
-            {
-              type: 'text',
-              text: `이 은행 거래내역 이미지에서 입금 항목들을 추출해줘.
-회원 목록: ${members.join(', ')}
-
-반드시 아래 JSON 배열만 출력해. 다른 텍스트 없이.
-[{"rawText":"원문","amount":숫자,"name":"이름또는null","category":"dues또는fine또는prize또는unknown"}, ...]
-- amount: 원화 금액 (숫자만, 콤마 없이)
-- name: 회원 목록에서 가장 유사한 이름. 없으면 null
-- category: 30000원이면 "dues"(회비), 소액이면 "fine"(벌금), 나머지 "unknown"
-- 잔액 행은 제외하고 입금된 항목만 포함`
-            }
-          ]
-        }]
-      })
+    const processedUrl2 = await preprocessImage(dataUrl);
+    const { data: { text } } = await Tesseract.recognize(processedUrl2, 'kor+eng', {
+      logger: () => {},
+      tessedit_pageseg_mode: '4',
     });
 
-    const txResult = await txResponse.json();
-    const txRaw = txResult.content?.map(c => c.text || '').join('').trim();
-    let items = [];
-    try {
-      const txClean = txRaw.replace(/```json|```/g, '').trim();
-      items = JSON.parse(txClean);
-      if (!Array.isArray(items)) items = [];
-    } catch(e) { items = []; }
+    const data = loadData();
+    const members = Object.keys(data.members || BASE_PLAYERS).sort();
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    const items = [];
+
+    for(const line of lines) {
+      // 금액 패턴: 콤마포함숫자+원
+      const amtMatch = line.match(/([0-9,]+)원/);
+      if(!amtMatch) continue;
+      const amount = parseInt(amtMatch[1].replace(/,/g,''));
+      if(amount < 1000 || amount > 10000000) continue;
+
+      // 이름 매칭: 회원 목록에서 부분일치
+      let name = null;
+      for(const m of members) {
+        if(line.includes(m)) { name = m; break; }
+      }
+
+      items.push({
+        rawText: line,
+        amount,
+        name,
+        category: amount === 30000 ? 'dues' : amount < 10000 ? 'fine' : 'unknown',
+        direction: 'in'
+      });
+    }
 
     loading.style.display = 'none';
     renderTxManualEditor(items, members);

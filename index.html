@@ -569,7 +569,7 @@
   const db = getDatabase(app);
   window._fb = { db, ref, set, get, onValue };
 
-  const KEYS = ['data','finePayments','extraFines','prizes','dues','genders','notices','sponsors','leagues','tourneys','votes','banggae'];
+  const KEYS = ['data','finePayments','extraFines','prizes','dues','genders','notices','sponsors','leagues','tourneys','entryFees','votes','banggae'];
 
   const LS_KEY_MAP = {
     data: 'bowlingApp_data',
@@ -584,6 +584,7 @@
     tourneys: 'bowlingApp_tourney',
     votes: 'bowlingApp_votes',
     banggae: 'bowlingApp_banggae',
+    entryFees: 'bowlingApp_entryFees',
   };
 
   function startSync() {
@@ -3740,6 +3741,7 @@
     <button id="moneytab_prizes" class="money-tab" onclick="switchMoneyTab('prizes')">🏆 상금</button>
     <button id="moneytab_tourney" class="money-tab" onclick="switchMoneyTab('tourney')">🗳️ 대회참가비</button>
     <button id="moneytab_sponsor" class="money-tab" onclick="switchMoneyTab('sponsor')">🎁 찬조</button>
+    <button id="moneytab_entry" class="money-tab" onclick="switchMoneyTab('entry')">🆕 가입비·클럽티</button>
     <button id="moneytab_txscan" class="money-tab admin-only" onclick="switchMoneyTab('txscan')" style="display:none;background:linear-gradient(135deg,rgba(249,115,22,0.15),rgba(59,130,246,0.1));border:1px solid rgba(249,115,22,0.4);color:var(--accent);">🤖 거래내역 분석</button>
   </div>
   <!-- 회비 패널 -->
@@ -4582,6 +4584,9 @@
   </div>
   </div>
   <!-- 찬조 패널 -->
+  <div id="moneyPanel_entry" style="display:none;">
+    <div id="entryContent"></div>
+  </div>
   <div id="moneyPanel_sponsor" style="display:none;">
     <div id="sponsorContent">
   <!-- 요약 카드 -->
@@ -4985,6 +4990,161 @@ function saveTxHistory(list) {
 const EXTRA_FINES_KEY = 'bowlingApp_extraFines';   // 추가 벌금 (미투표/클럽티/불참 등)
 const PRIZES_KEY = 'bowlingApp_prizes';             // 상금 내역
 
+
+// ── 가입비·클럽티 저장소 ──────────────────────────────────
+const ENTRY_FEES_KEY = 'bowlingApp_entryFees';
+function loadEntryFees() {
+  const cached = window.fbLoad ? window.fbLoad('entryFees', null) : null;
+  if(cached !== null) return cached;
+  try { const r = localStorage.getItem(ENTRY_FEES_KEY); if(r) return JSON.parse(r); } catch(e) {}
+  return [];
+}
+function saveEntryFees(list) {
+  try { localStorage.setItem(ENTRY_FEES_KEY, JSON.stringify(list)); } catch(e) {}
+  window.fbSave && window.fbSave('entryFees', list);
+}
+function toggleEntryFeePaid(id) {
+  if(!isAdmin) { toast('관리자만 변경할 수 있습니다.', 'error'); return; }
+  const list = loadEntryFees();
+  const item = list.find(x => x.id === id);
+  if(!item) return;
+  item.paid = !item.paid;
+  saveEntryFees(list);
+  renderEntryFees();
+  toast(item.paid ? '납부 완료 처리 ✓' : '납부 취소', item.paid ? 'success' : 'error');
+}
+function deleteEntryFee(id) {
+  if(!isAdmin) { toast('관리자만 삭제할 수 있습니다.', 'error'); return; }
+  if(!confirm('삭제할까요?')) return;
+  saveEntryFees(loadEntryFees().filter(x => x.id !== id));
+  renderEntryFees();
+  toast('삭제 완료');
+}
+function addEntryFeeManual() {
+  if(!isAdmin) { toast('관리자만 등록할 수 있습니다.', 'error'); return; }
+  const name   = document.getElementById('ef2_name').value;
+  const type   = document.getElementById('ef2_type').value;
+  const amount = parseInt(document.getElementById('ef2_amount').value) || 0;
+  const date   = document.getElementById('ef2_date').value || new Date().toISOString().slice(0,10);
+  const memo   = document.getElementById('ef2_memo').value.trim();
+  if(!name) { toast('이름을 선택하세요.', 'error'); return; }
+  if(!amount) { toast('금액을 입력하세요.', 'error'); return; }
+  const list = loadEntryFees();
+  list.push({ id:'en'+Date.now(), name, type, amount, paid:false, date, memo });
+  saveEntryFees(list);
+  renderEntryFees();
+  toast(`${name} ${type==='join_fee'?'가입비':'클럽티'} 등록 완료`);
+}
+
+function renderEntryFees() {
+  const container = document.getElementById('entryContent');
+  if(!container) return;
+  const data = loadData();
+  const members = Object.keys(data.members || BASE_PLAYERS).sort();
+  const list = loadEntryFees();
+
+  const joinList   = list.filter(x => x.type === 'join_fee');
+  const shirtList  = list.filter(x => x.type === 'club_shirt');
+  const totalAmt   = list.reduce((a,x) => a + x.amount, 0);
+  const paidAmt    = list.filter(x=>x.paid).reduce((a,x) => a + x.amount, 0);
+  const unpaidAmt  = totalAmt - paidAmt;
+
+  const makeRow = (item) => `
+    <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid rgba(30,45,69,0.4);${item.paid?'opacity:0.6;':''}">
+      <div style="flex:1;min-width:0;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-weight:700;font-size:14px;">${item.name}</span>
+          <span style="font-size:11px;background:${item.type==='join_fee'?'rgba(168,85,247,0.15)':'rgba(249,115,22,0.15)'};color:${item.type==='join_fee'?'#a855f7':'var(--accent)'};border:1px solid ${item.type==='join_fee'?'rgba(168,85,247,0.3)':'rgba(249,115,22,0.3)'};border-radius:4px;padding:1px 7px;">${item.type==='join_fee'?'🆕 가입비':'👕 클럽티'}</span>
+          ${item.paid ? '<span style="font-size:11px;background:rgba(34,197,94,0.15);color:var(--green);border:1px solid rgba(34,197,94,0.3);border-radius:4px;padding:1px 7px;">✓ 완료</span>' : '<span style="font-size:11px;background:rgba(239,68,68,0.1);color:var(--red);border:1px solid rgba(239,68,68,0.3);border-radius:4px;padding:1px 7px;">⏳ 미납</span>'}
+        </div>
+        <div style="font-size:12px;color:var(--text3);margin-top:3px;">${item.date}${item.memo?' · '+item.memo:''}</div>
+      </div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:700;color:var(--accent);flex-shrink:0;">${item.amount.toLocaleString()}원</div>
+      ${isAdmin ? `
+      <div style="display:flex;gap:6px;flex-shrink:0;">
+        <button onclick="toggleEntryFeePaid('${item.id}')" style="background:${item.paid?'rgba(239,68,68,0.1)':'rgba(34,197,94,0.1)'};border:1px solid ${item.paid?'rgba(239,68,68,0.3)':'rgba(34,197,94,0.3)'};color:${item.paid?'var(--red)':'var(--green)'};border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;">${item.paid?'취소':'납부✓'}</button>
+        <button onclick="deleteEntryFee('${item.id}')" style="background:none;border:1px solid rgba(239,68,68,0.3);color:var(--text3);border-radius:6px;padding:4px 8px;font-size:12px;cursor:pointer;">✕</button>
+      </div>` : ''}
+    </div>`;
+
+  container.innerHTML = `
+  <!-- 요약 -->
+  <div class="fine-summary-grid" style="margin-bottom:24px;">
+    <div class="fine-summary-card" style="border-color:rgba(168,85,247,0.3);">
+      <div class="fine-summary-icon">🆕</div>
+      <div class="fine-summary-val" style="color:#a855f7;">${joinList.length}<span style="font-size:14px;">명</span></div>
+      <div class="fine-summary-label">가입비 (${joinList.filter(x=>x.paid).length}명 완료)</div>
+    </div>
+    <div class="fine-summary-card" style="border-color:rgba(249,115,22,0.3);">
+      <div class="fine-summary-icon">👕</div>
+      <div class="fine-summary-val" style="color:var(--accent);">${shirtList.length}<span style="font-size:14px;">명</span></div>
+      <div class="fine-summary-label">클럽티 (${shirtList.filter(x=>x.paid).length}명 완료)</div>
+    </div>
+    <div class="fine-summary-card" style="border-color:rgba(34,197,94,0.3);">
+      <div class="fine-summary-icon">✅</div>
+      <div class="fine-summary-val" style="color:var(--green);">${paidAmt.toLocaleString()}<span style="font-size:14px;font-weight:400;">원</span></div>
+      <div class="fine-summary-label">납부 완료</div>
+    </div>
+    <div class="fine-summary-card" style="border-color:rgba(239,68,68,0.2);">
+      <div class="fine-summary-icon">⏳</div>
+      <div class="fine-summary-val" style="color:${unpaidAmt>0?'var(--red)':'var(--text2)'};">${unpaidAmt.toLocaleString()}<span style="font-size:14px;font-weight:400;">원</span></div>
+      <div class="fine-summary-label">미납 합계</div>
+    </div>
+  </div>
+
+  ${isAdmin ? `
+  <!-- 수동 등록 폼 -->
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:24px;">
+    <div style="font-weight:700;font-size:14px;margin-bottom:14px;">➕ 직접 등록</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+      <div class="input-group">
+        <label>이름</label>
+        <select id="ef2_name" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:13px;">
+          <option value="">선택</option>
+          ${members.map(m=>`<option>${m}</option>`).join('')}
+        </select>
+      </div>
+      <div class="input-group">
+        <label>종류</label>
+        <select id="ef2_type" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:13px;">
+          <option value="join_fee">🆕 가입비</option>
+          <option value="club_shirt">👕 클럽티</option>
+        </select>
+      </div>
+      <div class="input-group">
+        <label>금액</label>
+        <input type="number" id="ef2_amount" placeholder="30000" step="1000"
+          style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:13px;width:110px;">
+      </div>
+      <div class="input-group">
+        <label>날짜</label>
+        <input type="date" id="ef2_date"
+          style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:13px;">
+      </div>
+      <div class="input-group">
+        <label>메모</label>
+        <input type="text" id="ef2_memo" placeholder="선택사항"
+          style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:13px;width:120px;">
+      </div>
+      <button onclick="addEntryFeeManual()" class="btn btn-primary" style="height:36px;">등록</button>
+    </div>
+  </div>` : ''}
+
+  <!-- 가입비 목록 -->
+  ${joinList.length > 0 ? `
+  <div style="background:var(--card);border:1px solid rgba(168,85,247,0.2);border-radius:16px;overflow:hidden;margin-bottom:20px;">
+    <div style="padding:14px 16px;background:rgba(168,85,247,0.06);border-bottom:1px solid rgba(168,85,247,0.2);font-weight:700;font-size:14px;color:#a855f7;">🆕 가입비 (${joinList.length}명)</div>
+    ${joinList.map(makeRow).join('')}
+  </div>` : '<div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;text-align:center;color:var(--text3);margin-bottom:20px;">🆕 가입비 내역이 없습니다</div>'}
+
+  <!-- 클럽티 목록 -->
+  ${shirtList.length > 0 ? `
+  <div style="background:var(--card);border:1px solid rgba(249,115,22,0.2);border-radius:16px;overflow:hidden;">
+    <div style="padding:14px 16px;background:rgba(249,115,22,0.06);border-bottom:1px solid rgba(249,115,22,0.2);font-weight:700;font-size:14px;color:var(--accent);">👕 클럽티 (${shirtList.length}명)</div>
+    ${shirtList.map(makeRow).join('')}
+  </div>` : '<div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;text-align:center;color:var(--text3);">👕 클럽티 내역이 없습니다</div>'}
+  `;
+}
 function loadData() {
   const _cached = window.fbLoad ? window.fbLoad('data', null) : null;
   if(_cached !== null) return _cached;
@@ -5463,7 +5623,7 @@ function showSection(id, btn) {
 let _currentMoneyTab = 'dues';
 function switchMoneyTab(tab) {
   _currentMoneyTab = tab;
-  ['dues','fines','prizes','tourney','sponsor','txscan'].forEach(t => {
+  ['dues','fines','prizes','tourney','sponsor','entry','txscan'].forEach(t => {
     const btn = document.getElementById('moneytab_' + t);
     if(btn) btn.classList.toggle('active', t === tab);
     const panel = document.getElementById('moneyPanel_' + t);
@@ -5475,6 +5635,7 @@ function switchMoneyTab(tab) {
   if(tab==='tourney') renderTourney();
   if(tab==='sponsor') renderSponsor();
   if(tab==='txscan')  renderTxScan();
+  if(tab==='entry')   renderEntryFees();
 }
 
 // ── 투표 탭 전환 ──
@@ -6396,15 +6557,16 @@ function applyTxResult() {
       saveExtraFines(extraFines);
       appliedCount++;
     } else if(it.category === 'join_fee' || it.category === 'club_shirt') {
-      // 가입비 / 클럽티 → 추가벌금 형태로 저장 (paid:true)
+      // 가입비 / 클럽티 → 별도 entryFees 저장소에 저장
       const typeLabel = it.category === 'join_fee' ? '가입비' : '클럽티';
       const typeIcon  = it.category === 'join_fee' ? '🆕' : '👕';
-      const extraFines = loadExtraFines();
-      extraFines.push({ id:'ef'+Date.now()+'_'+idx, roundLabel:'회비내역', name:it.name,
-        type:'custom', amount:it.amount||0, paid:true,
-        memo:`[${typeIcon}${typeLabel}] ${it.memo||it.label||''}` });
-      saveExtraFines(extraFines);
-      histItem.label = `${typeLabel} ${(it.amount||0).toLocaleString()}원`;
+      const entryFees = loadEntryFees();
+      entryFees.push({ id:'en'+Date.now()+'_'+idx, name:it.name,
+        type:it.category, amount:it.amount||0, paid:true,
+        date: it.date || new Date().toISOString().slice(0,10),
+        memo:it.memo||it.label||'' });
+      saveEntryFees(entryFees);
+      histItem.label = `${typeIcon}${typeLabel} ${(it.amount||0).toLocaleString()}원`;
       appliedCount++;
     } else if(it.category === 'prize') {
       const prizes = loadPrizes();
@@ -6427,7 +6589,7 @@ function applyTxResult() {
   if(appliedCount > 0) {
     toast(`✅ ${appliedCount}건 적용 완료!${skipped.length>0?' (미분류/이름없음 '+skipped.length+'건 건너뜀)':''}`, 'success');
     // 관련 렌더 갱신
-    renderDues(); renderFines(); renderPrizes(); renderSponsor();
+    renderDues(); renderFines(); renderPrizes(); renderSponsor(); renderEntryFees();
     // 결과 영역 초기화 후 이력 표시
     setTimeout(() => renderTxScan(), 300);
   } else {
@@ -9633,22 +9795,78 @@ function renderRounds() {
     container.innerHTML = '<div class="empty"><div class="empty-icon">🎳</div><div class="empty-text">기록된 라운드가 없습니다</div></div>';
     return;
   }
-  container.innerHTML = [...data.rounds].reverse().map(r => `
+
+  container.innerHTML = [...data.rounds].map((r, roundIdx) => {
+    // 실제 라운드 인덱스 (rounds 배열 기준)
+    const realIdx = data.rounds.indexOf(r);
+
+    // 선수별 직전에버·핸디·벌금 계산
+    const scoreData = [...r.scores].sort((a,b) => b.total - a.total).map(s => {
+      const { avg: prevAvg, handi } = getRoundAvgAndHandi(realIdx, s.name);
+      const g = getScoreG(s);
+      const fine = checkFine(g, prevAvg, s.name);
+      const handiTotal = s.total + handi;
+      return { ...s, g, prevAvg, handi, fine, handiTotal };
+    });
+
+    const fineList = scoreData.filter(s => s.fine > 0);
+    const fineTotal = fineList.reduce((a,s) => a + s.fine, 0);
+    const bestTotal = Math.max(...scoreData.map(s => s.total));
+
+    return `
     <div class="round-card">
       <div class="round-card-header">
-        <div><div class="round-date">${r.label||r.date}</div>
-          <div class="round-count">${r.date} · ${r.scores.length}명 참가</div></div>
-        ${isAdmin ? `<button onclick="deleteRound('${r.id}')" class="btn btn-secondary" style="font-size:11px;padding:4px 10px;">🗑️</button>` : ''}
+        <div>
+          <div class="round-date">${r.label || r.date}</div>
+          <div class="round-count" style="margin-top:2px;">${r.date} · ${r.scores.length}명 참가</div>
+        </div>
+        <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--text3);">최고: ${bestTotal}</div>
+          ${fineList.length > 0 ? `<div style="font-size:11px;color:var(--red);">💸 벌금 ${fineList.length}명 · ${fineTotal.toLocaleString()}원</div>` : ''}
+          ${isAdmin ? `<button onclick="deleteRound('${r.id}')" style="background:none;border:1px solid rgba(239,68,68,0.4);color:var(--red);border-radius:6px;padding:2px 8px;font-size:11px;cursor:pointer;">🗑️ 삭제</button>` : ''}
+        </div>
       </div>
-      ${[...r.scores].sort((a,b)=>b.total-a.total).map(s => {
-        const g = getScoreG(s);
-        return `<div class="round-entry">
-          <span class="round-entry-name">${s.name}</span>
-          <span class="round-entry-scores">${g.join(' · ')}</span>
-          <span class="round-entry-total">${s.total}</span>
+
+      ${scoreData.map((s, rank) => {
+        const hasFine = s.fine > 0;
+        const gSpans = s.g.map(v =>
+          `<span style="${v < s.prevAvg ? 'color:var(--red);font-weight:700;' : ''}">${v}</span>`
+        ).join(' · ');
+        return `
+        <div class="round-entry" style="${hasFine ? 'background:rgba(239,68,68,0.04);' : ''}">
+          <div style="display:flex;align-items:center;gap:8px;min-width:0;">
+            <span style="font-size:11px;color:var(--text3);width:16px;flex-shrink:0;">${rank+1}</span>
+            <div style="min-width:0;">
+              <div style="display:flex;align-items:center;gap:6px;">
+                <span class="round-entry-name">${s.name}</span>
+                ${hasFine ? `<span style="font-size:10px;background:rgba(239,68,68,0.15);color:var(--red);border:1px solid rgba(239,68,68,0.3);border-radius:4px;padding:1px 5px;">💸 벌금</span>` : ''}
+              </div>
+              <div style="font-size:11px;color:var(--text3);margin-top:2px;">직전에버 ${Math.round(s.prevAvg)} · 핸디 ${s.handi}</div>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;">
+            <div style="display:flex;gap:8px;align-items:center;">
+              <span class="round-entry-scores">${gSpans}</span>
+              <span class="round-entry-total">${s.total}</span>
+              ${isAdmin ? `<button onclick="deletePlayerFromRound('${r.id}','${s.name}')" title="${s.name} 삭제"
+                style="background:none;border:1px solid rgba(239,68,68,0.3);color:var(--text3);border-radius:4px;
+                padding:2px 7px;font-size:11px;cursor:pointer;transition:all .2s;white-space:nowrap;"
+                onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)';"
+                onmouseout="this.style.borderColor='rgba(239,68,68,0.3)';this.style.color='var(--text3)';">✕</button>` : ''}
+            </div>
+            <div style="font-size:11px;color:var(--text3);">에버 ${Math.round(s.prevAvg)} · 핸디적용 <span style="color:var(--accent);font-weight:600;">${s.handiTotal}</span></div>
+          </div>
         </div>`;
       }).join('')}
-    </div>`).join('');
+
+      ${fineList.length > 0 ? `
+      <div style="padding:10px 16px;background:rgba(239,68,68,0.06);border-top:1px solid rgba(239,68,68,0.15);display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <span style="font-size:12px;color:var(--red);font-weight:600;">💸 벌금 대상:</span>
+        <span style="font-size:12px;color:var(--text2);">${fineList.map(s=>s.name).join(', ')}</span>
+        <span style="margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:var(--red);">${fineTotal.toLocaleString()}원</span>
+      </div>` : ''}
+    </div>`;
+  }).reverse().join('');
 }
 
 function renderPlayers() {

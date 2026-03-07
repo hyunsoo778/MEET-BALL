@@ -6187,17 +6187,17 @@ function renderTxManualEditor(items, members) {
     <div style="font-size:12px;color:var(--text3);margin-bottom:14px;">이름과 분류를 확인·수정 후 저장하세요</div>
     <div id="txManualRows" style="display:flex;flex-direction:column;gap:10px;">
       ${rows.map((item, i) => `
-      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:10px 14px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+      <div data-row="${i}" style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:10px 14px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
         <div style="font-size:11px;color:var(--text3);width:100%;margin-bottom:2px;">${item.rawText||'수동입력'}</div>
         <select data-idx="${i}" class="tx-name-sel" style="flex:1;min-width:90px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px;font-size:12px;font-family:inherit;">
           <option value="">-- 이름 선택 --</option>
           ${members.map(m=>`<option value="${m}" ${item.name===m?'selected':''}>${m}</option>`).join('')}
         </select>
         <input type="number" class="tx-amount-inp" value="${item.amount||''}" placeholder="금액" style="width:90px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px;font-size:12px;font-family:inherit;">
-        <select class="tx-cat-sel" style="flex:1;min-width:80px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px;font-size:12px;font-family:inherit;">
+        <select class="tx-cat-sel" onchange="const mi=this.closest('div,form').querySelector('.tx-month-inp');if(mi)mi.style.display=this.value==='dues'?'block':'none';" style="flex:1;min-width:80px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px;font-size:12px;font-family:inherit;">
           ${catOptions.replace(`value="${item.category}"`, `value="${item.category}" selected`)}
         </select>
-        <input type="number" class="tx-month-inp" value="" placeholder="월(회비)" min="1" max="12" style="width:70px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px;font-size:12px;font-family:inherit;">
+        <input type="number" class="tx-month-inp" value="${item.month||''}" placeholder="월" min="1" max="12" style="width:60px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px;font-size:12px;font-family:inherit;display:${item.category==='dues'?'block':'none'};">
         <button onclick="this.closest('div[data-row]')?.remove()||this.closest('.tx-row')?.remove()" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:#ef4444;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px;">삭제</button>
       </div>`).join('')}
     </div>
@@ -6214,6 +6214,7 @@ function addTxManualRow() {
   const members = Object.keys(data.members || BASE_PLAYERS).sort();
   const catOptions = `<option value="dues">회비</option><option value="fine">벌금</option><option value="prize">상금</option><option value="sponsor">찬조</option><option value="unknown">미분류</option>`;
   const div = document.createElement('div');
+  div.setAttribute('data-row','new');
   div.style.cssText = 'background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:10px 14px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;';
   div.innerHTML = `
     <div style="font-size:11px;color:var(--text3);width:100%;">수동입력</div>
@@ -6222,8 +6223,8 @@ function addTxManualRow() {
       ${members.map(m=>`<option value="${m}">${m}</option>`).join('')}
     </select>
     <input type="number" class="tx-amount-inp" placeholder="금액" style="width:90px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px;font-size:12px;font-family:inherit;">
-    <select class="tx-cat-sel" style="flex:1;min-width:80px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px;font-size:12px;font-family:inherit;">${catOptions}</select>
-    <input type="number" class="tx-month-inp" placeholder="월(회비)" min="1" max="12" style="width:70px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px;font-size:12px;font-family:inherit;">
+    <select class="tx-cat-sel" onchange="const mi=this.closest('div').querySelector('.tx-month-inp');if(mi)mi.style.display=this.value==='dues'?'block':'none';" style="flex:1;min-width:80px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px;font-size:12px;font-family:inherit;">${catOptions}</select>
+    <input type="number" class="tx-month-inp" placeholder="월" min="1" max="12" style="width:60px;background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px;font-size:12px;font-family:inherit;display:none;">
     <button onclick="this.closest('div').remove()" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:#ef4444;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px;">삭제</button>`;
   document.getElementById('txManualRows').appendChild(div);
 }
@@ -6231,26 +6232,44 @@ function addTxManualRow() {
 function saveTxManualRows() {
   if(!isAdmin) { toast('관리자만 저장할 수 있습니다.', 'error'); return; }
   const rows = document.querySelectorAll('#txManualRows > div');
-  const data = loadData();
   let saved = 0;
+  const dues = loadDues();
+  const entryFees = loadEntryFees();
+  const extraFines = loadExtraFines();
+  const prizes = loadPrizes();
+  const sponsors = loadSponsors();
+  const today = new Date().toISOString().slice(0,10);
+
   for(const row of rows) {
-    const name = row.querySelector('.tx-name-sel')?.value;
+    const name   = row.querySelector('.tx-name-sel')?.value;
     const amount = parseInt(row.querySelector('.tx-amount-inp')?.value||'0');
-    const cat = row.querySelector('.tx-cat-sel')?.value;
-    const month = parseInt(row.querySelector('.tx-month-inp')?.value||'0');
+    const cat    = row.querySelector('.tx-cat-sel')?.value;
+    const month  = parseInt(row.querySelector('.tx-month-inp')?.value||'0');
     if(!name || !amount) continue;
-    const key = `${Date.now()}_${Math.random().toString(36).slice(2,6)}`;
-    if(!data.fees) data.fees = {};
-    data.fees[key] = {
-      name, amount, category: cat,
-      month: month || new Date().getMonth()+1,
-      date: new Date().toISOString().slice(0,10),
-      direction: 'in', confirmed: true
-    };
+
+    if(cat === 'dues') {
+      const m = month || new Date().getMonth()+1;
+      if(!dues[name]) dues[name] = {};
+      dues[name][m] = true;
+    } else if(cat === 'join_fee' || cat === 'club_shirt') {
+      entryFees.push({ id:'en'+Date.now()+'_'+saved, name, type:cat, amount, paid:true, date:today, memo:'수동입력' });
+    } else if(cat === 'fine') {
+      extraFines.push({ id:'ef'+Date.now()+'_'+saved, roundLabel:'수동입력', name, type:'custom', amount, paid:true, memo:'수동입력' });
+    } else if(cat === 'prize') {
+      prizes.push({ id:'pr'+Date.now()+'_'+saved, name, amount, reason:'수동입력', paid:true, date:today });
+    } else if(cat === 'sponsor') {
+      sponsors.unshift({ id:'sp'+Date.now()+'_'+saved, name, amount, reason:'수동입력', date:today, note:'수동입력' });
+    }
     saved++;
   }
-  saveData(data);
-  toast(`${saved}건 저장 완료!`);
+
+  saveDues(dues);
+  saveEntryFees(entryFees);
+  saveExtraFines(extraFines);
+  savePrizes(prizes);
+  saveSponsors(sponsors);
+  renderDues(); renderEntryFees(); renderFines(); renderPrizes(); renderSponsor();
+  toast(`✅ ${saved}건 저장 완료!`, 'success');
   document.getElementById('tx_result').style.display = 'none';
 }
 
@@ -6466,7 +6485,7 @@ function renderTxResultUI(parsed) {
           + '</div>'
         + '</div>' : '')
       + '</div>'
-      + '<div style="font-family:JetBrains Mono,monospace;font-weight:700;font-size:16px;color:' + amtColor + ';flex-shrink:0;">' + amtSign + (it.amount||0).toLocaleString() + '원</div>'
+      + '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;flex-shrink:0;">'        + '<div style="font-family:JetBrains Mono,monospace;font-weight:700;font-size:16px;color:' + amtColor + ';">' + amtSign + (it.amount||0).toLocaleString() + '원</div>'        + '<button onclick="deleteTxItem(' + idx + ')" style="background:none;border:1px solid rgba(239,68,68,0.35);color:var(--text3);border-radius:6px;padding:3px 9px;font-size:12px;cursor:pointer;" onmouseover="this.style.color=\'var(--red)\';this.style.borderColor=\'var(--red)\';" onmouseout="this.style.color=\'var(--text3)\';this.style.borderColor=\'rgba(239,68,68,0.35)\';">✕ 삭제</button>'      + '</div>'
     + '</div>';
   }).join('');
 
@@ -6491,10 +6510,47 @@ function renderTxResultUI(parsed) {
 
 function updateTxItem(idx) {
   if(!window._txAnalysisResult) return;
-  const nameEl = document.getElementById('tx_name_' + idx);
-  const catEl  = document.getElementById('tx_cat_'  + idx);
-  if(nameEl) window._txAnalysisResult.items[idx].name = nameEl.value;
+  const nameEl  = document.getElementById('tx_name_' + idx);
+  const catEl   = document.getElementById('tx_cat_'  + idx);
+  const monthEl = document.getElementById('tx_month_' + idx);
+  if(nameEl) window._txAnalysisResult.items[idx].name     = nameEl.value;
   if(catEl)  window._txAnalysisResult.items[idx].category = catEl.value;
+  if(monthEl) window._txAnalysisResult.items[idx].month   = parseInt(monthEl.value);
+
+  // 카테고리 변경 시 월 선택 셀렉트 동적 추가/제거
+  const row = document.getElementById('tx_item_' + idx);
+  if(!row || !catEl) return;
+  const cat = catEl.value;
+  const existMonth = document.getElementById('tx_month_' + idx);
+  if(cat === 'dues') {
+    if(!existMonth) {
+      const curMonth = new Date().getMonth()+1;
+      const sel = document.createElement('select');
+      sel.id = 'tx_month_' + idx;
+      sel.style.cssText = 'background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 8px;border-radius:8px;font-size:12px;';
+      sel.innerHTML = [1,2,3,4,5,6,7,8,9,10,11,12].map(m =>
+        `<option value="${m}"${m===curMonth?' selected':''}>${m}월</option>`).join('');
+      sel.onchange = () => updateTxItem(idx);
+      catEl.insertAdjacentElement('afterend', sel);
+    }
+  } else {
+    if(existMonth) existMonth.remove();
+  }
+}
+
+function deleteTxItem(idx) {
+  if(!window._txAnalysisResult) return;
+  // DOM에서 해당 행 제거
+  const row = document.getElementById('tx_item_' + idx);
+  if(row) row.remove();
+  // 데이터에서도 제거 (체크박스 해제 방식으로)
+  const chk = document.getElementById('tx_chk_' + idx);
+  if(chk) chk.checked = false;
+  // _txAnalysisResult items 배열에서도 제거
+  if(window._txAnalysisResult && window._txAnalysisResult.items) {
+    window._txAnalysisResult.items[idx] = null; // null로 마킹 (인덱스 유지)
+  }
+  toast('항목 삭제됨', 'success');
 }
 
 function toggleAllTxItems(val) {
@@ -6516,8 +6572,16 @@ function applyTxResult() {
   let skipped = [];
 
   items.forEach((it, idx) => {
+    if(!it) return; // deleteTxItem으로 삭제된 항목
     const chk = document.getElementById('tx_chk_' + idx);
     if(!chk || !chk.checked) return;
+    // DOM에서 최신 이름·카테고리 다시 읽기
+    const nameEl = document.getElementById('tx_name_' + idx);
+    const catEl  = document.getElementById('tx_cat_'  + idx);
+    const monthEl = document.getElementById('tx_month_' + idx);
+    if(nameEl && nameEl.value) it.name = nameEl.value;
+    if(catEl  && catEl.value)  it.category = catEl.value;
+    if(monthEl && monthEl.value) it.month = parseInt(monthEl.value);
     if(it.category === 'unknown') { skipped.push(it); return; }
     if(!it.name) { skipped.push(it); return; }
 

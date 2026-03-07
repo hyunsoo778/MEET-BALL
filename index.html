@@ -6178,7 +6178,7 @@ function renderTxManualEditor(items, members) {
   }
   const rows = items.length > 0 ? items : [{ rawText:'', amount:0, name:null, category:'dues', direction:'in' }];
 
-  const catOptions = `<option value="dues">회비</option><option value="fine">벌금</option><option value="prize">상금</option><option value="sponsor">찬조</option><option value="unknown">미분류</option>`;
+  const catOptions = `<option value="dues">💳 회비</option><option value="join_fee">🆕 가입비</option><option value="club_shirt">👕 클럽티</option><option value="fine">💸 벌금</option><option value="prize">🏆 상금</option><option value="sponsor">🎁 찬조</option><option value="unknown">❓ 미분류</option>`;
   const memberOptions = members.map(m => `<option value="${m}">${m}</option>`).join('');
 
   resultDiv.innerHTML = `
@@ -6212,7 +6212,7 @@ function renderTxManualEditor(items, members) {
 function addTxManualRow() {
   const data = loadData();
   const members = Object.keys(data.members || BASE_PLAYERS).sort();
-  const catOptions = `<option value="dues">회비</option><option value="fine">벌금</option><option value="prize">상금</option><option value="sponsor">찬조</option><option value="unknown">미분류</option>`;
+  const catOptions = `<option value="dues">💳 회비</option><option value="join_fee">🆕 가입비</option><option value="club_shirt">👕 클럽티</option><option value="fine">💸 벌금</option><option value="prize">🏆 상금</option><option value="sponsor">🎁 찬조</option><option value="unknown">❓ 미분류</option>`;
   const div = document.createElement('div');
   div.setAttribute('data-row','new');
   div.style.cssText = 'background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:10px 14px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;';

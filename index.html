@@ -10475,39 +10475,43 @@ function buildLanePdfHtml() {
   // A4 가로: 297×210mm / A4 세로: 210×297mm
   // B4 가로: 364×257mm / B4 세로: 257×364mm
   // 게임3×쌍4 구조 → 가로에 4쌍, 세로에 3게임
-  const isA3 = paper.includes('A3');
-  const fs  = isA3 ? 12 : isB4 ? 10 : 9;    // 기본 폰트
-  const lfs = isA3 ? 20 : isB4 ? 16 : 14;   // 레인번호 폰트
-  const gfs = isA3 ? 13 : isB4 ? 11 : 10;   // 게임번호 폰트
-  const pd  = isA3 ? '4px 7px' : isB4 ? '3px 5px' : '2px 4px'; // 패딩
-  const spd = isA3 ? '6px 7px' : isB4 ? '4px 5px' : '3px 4px'; // 점수 패딩
+    const isA3 = paper.includes('A3');
+  const fs  = isA3 ? 14 : isB4 ? 11 : 10;
+  const nfs = isA3 ? 16 : isB4 ? 13 : 12;    // 이름 폰트
+  const lfs = isA3 ? 22 : isB4 ? 18 : 15;    // 레인번호 폰트
+  const gfs = isA3 ? 14 : isB4 ? 12 : 11;    // 게임번호 폰트
+  const npd = isA3 ? '7px 8px' : isB4 ? '5px 6px' : '4px 5px'; // 이름 패딩
+  const spd = isA3 ? '5px 4px' : isB4 ? '4px 3px' : '3px 3px'; // 점수 패딩
+  const sw  = isA3 ? '55px' : isB4 ? '45px' : '38px'; // 점수 열 너비
+  const tw  = isA3 ? '60px' : isB4 ? '50px' : '44px'; // 팀 열 너비
 
   let html = `<div style="font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;color:#000;font-size:${fs}px;">
-  <div style="text-align:center;font-size:13px;font-weight:bold;margin-bottom:8px;">🎳 레인 배정표</div>`;
+  <div style="text-align:center;font-size:15px;font-weight:bold;margin-bottom:8px;">🎳 레인 배정표</div>`;
 
   games.forEach(game => {
-    html += `<div style="margin-bottom:16px;page-break-inside:avoid;">
-    <div style="background:#1e3a5f;color:#fff;font-weight:bold;font-size:${gfs}px;padding:2px 8px;border-radius:3px;margin-bottom:6px;display:inline-block;">${game.gameNo}게임</div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;">`;
+    html += `<div style="margin-bottom:12px;page-break-inside:avoid;">
+    <div style="background:#1e3a5f;color:#fff;font-weight:bold;font-size:${gfs}px;padding:3px 10px;border-radius:3px;margin-bottom:6px;display:inline-block;">${game.gameNo}게임</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;">`;
 
     for(let i=0; i<game.lanes.length; i+=2){
       const pair = game.lanes.slice(i,i+2);
-      html += `<div style="border:1.5px solid #cbd5e1;border-radius:6px;overflow:hidden;min-width:180px;flex:1;">`;
+      html += `<div style="border:1.5px solid #94a3b8;border-radius:5px;overflow:hidden;min-width:160px;flex:1;">`;
       pair.forEach((lane,pi)=>{
-        html += `<div style="display:flex;${pi<pair.length-1?'border-bottom:1.5px solid #cbd5e1;':''}">
-          <div style="background:#334155;color:#fff;font-weight:900;font-size:${lfs}px;display:flex;align-items:center;justify-content:center;min-width:30px;border-right:1.5px solid #cbd5e1;padding:3px;">${lane.laneNo}</div>
+        html += `<div style="display:flex;${pi<pair.length-1?'border-bottom:2px solid #94a3b8;':''}">
+          <div style="background:#1e293b;color:#fff;font-weight:900;font-size:${lfs}px;display:flex;align-items:center;justify-content:center;min-width:34px;border-right:2px solid #94a3b8;padding:4px;">${lane.laneNo}</div>
           <table style="width:100%;border-collapse:collapse;font-size:${fs}px;">
-            <tr style="background:#f8fafc;">
-              <th style="padding:3px 6px;border-bottom:1px solid #e2e8f0;color:#64748b;text-align:left;width:50px;">이름</th>
-              <th style="padding:${pd};border-bottom:1px solid #e2e8f0;color:#64748b;text-align:left;width:55px;">팀</th>
-              <th style="padding:3px 6px;border-bottom:1px solid #e2e8f0;color:#64748b;text-align:center;">점수</th>
+            <tr style="background:#e2e8f0;">
+              <th style="padding:3px 6px;border-bottom:1.5px solid #94a3b8;color:#475569;font-weight:700;text-align:left;">이름</th>
+              <th style="padding:3px 4px;border-bottom:1.5px solid #94a3b8;color:#475569;font-weight:700;text-align:left;width:${tw};">팀</th>
+              <th style="padding:3px 4px;border-bottom:1.5px solid #94a3b8;color:#475569;font-weight:700;text-align:center;width:${sw};">점수</th>
             </tr>
             ${lane.slots.map(p=>{
-              const bg = p?(bgMap[p.teamName]||'#f1f5f9'):'#fff';
-              return `<tr style="border-bottom:1px solid #f1f5f9;">
-                <td style="padding:${pd};font-weight:${p?600:400};color:${p?'#111':'#ccc'};">${p?p.name:''}</td>
-                <td style="padding:4px 6px;">${(p && p.teamName && p.teamName!=='개인전' && !p.teamName.includes('그룹'))?`<span style="background:${bg};padding:1px 5px;border-radius:3px;font-size:10px;color:#334155;">${p.teamName}</span>`:''}</td>
-                <td style="padding:${spd};border:1px solid #cbd5e1;min-width:45px;"></td>
+              const teamBg = p ? (bgMap[p.teamName]||'#f1f5f9') : '#fff';
+              const showTeam = p && p.teamName && p.teamName !== '개인전' && !p.teamName.includes('그룹');
+              return `<tr style="border-bottom:1px solid #cbd5e1;">
+                <td style="padding:${npd};font-size:${nfs}px;font-weight:700;color:${p?'#0f172a':'#cbd5e1'};">${p?p.name:''}</td>
+                <td style="padding:3px 4px;width:${tw};">${showTeam?`<span style="background:${teamBg};padding:2px 5px;border-radius:3px;font-size:${fs-1}px;color:#334155;font-weight:600;">${p.teamName}</span>`:''}</td>
+                <td style="padding:${spd};border-left:1px solid #cbd5e1;width:${sw};"></td>
               </tr>`;
             }).join('')}
           </table>

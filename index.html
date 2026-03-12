@@ -9106,6 +9106,11 @@ function renderTeamBuilder(presetMembers) {
               <option value="8">8팀</option>
               <option value="9">9팀</option>
               <option value="10">10팀</option>
+              <option value="11">11팀</option>
+              <option value="12">12팀</option>
+              <option value="13">13팀</option>
+              <option value="14">14팀</option>
+              <option value="15">15팀</option>
             </select>
           </div>
         </div>
@@ -9144,6 +9149,11 @@ function renderTeamBuilder(presetMembers) {
                     <option value="8">8팀</option>
                     <option value="9">9팀</option>
                     <option value="10">10팀</option>
+                    <option value="11">11팀</option>
+                    <option value="12">12팀</option>
+                    <option value="13">13팀</option>
+                    <option value="14">14팀</option>
+                    <option value="15">15팀</option>
                   </select>
                 </div>
               </div>
@@ -9180,6 +9190,11 @@ function renderTeamBuilder(presetMembers) {
                     <option value="8">8팀</option>
                     <option value="9">9팀</option>
                     <option value="10">10팀</option>
+                    <option value="11">11팀</option>
+                    <option value="12">12팀</option>
+                    <option value="13">13팀</option>
+                    <option value="14">14팀</option>
+                    <option value="15">15팀</option>
                   </select>
                 </div>
               </div>
@@ -9209,6 +9224,7 @@ function renderTeamBuilder(presetMembers) {
           참가자를 선택하면 정보가 표시됩니다
         </div>
         <button onclick="buildTeams()" class="btn btn-primary" style="font-size:15px;padding:12px 24px;">⚡ 팀 편성 실행</button>
+        <button onclick="openLaneAssign()" class="btn btn-secondary" style="font-size:13px;padding:10px 24px;width:100%;margin-top:8px;background:rgba(99,102,241,0.15);border-color:rgba(99,102,241,0.4);color:#818cf8;">🎳 레인 배정표 열기</button>
       </div>
     </div>
   </div>
@@ -9442,13 +9458,13 @@ function setTeamSize(group, perTeam) {
   if(group === 'all') {
     count = Math.round(sel.length / perTeam);
     const el = document.getElementById('tb_teamcount');
-    if(el) { el.value = Math.max(2, Math.min(10, count)); }
+    if(el) { el.value = Math.max(2, Math.min(15, count)); }
   } else {
     const groupPlayers = sel.filter(n => (leagues[n]||'A') === group);
     count = Math.round(groupPlayers.length / perTeam);
     const elId = group === 'A' ? 'tb_teamcount_a' : 'tb_teamcount_b';
     const el = document.getElementById(elId);
-    if(el) { el.value = Math.max(2, Math.min(10, count)); }
+    if(el) { el.value = Math.max(2, Math.min(15, count)); }
   }
   saveTbState();
   updateBuilderStats();
@@ -9763,6 +9779,7 @@ function renderTeamResult(teams, players, noHandi, modeLabel, soloGroups, teamPl
         <span style="font-size:13px;color:var(--text3);">팀전 평균에버: <b style="color:var(--accent);">${teamPlayers.length>0?Math.round(teamPlayers.reduce((a,p)=>a+p.avg,0)/teamPlayers.length):0}</b></span>
         <button onclick="buildTeams()" class="btn btn-secondary" style="font-size:12px;padding:6px 14px;">🔀 다시 편성</button>
         <button onclick="copyTeamResult()" class="btn btn-secondary" style="font-size:12px;padding:6px 14px;">📋 복사</button>
+        <button onclick="openLaneAssign()" class="btn btn-secondary" style="font-size:12px;padding:6px 14px;background:rgba(99,102,241,0.15);border-color:rgba(99,102,241,0.4);color:#818cf8;">🎳 레인 배정표</button>
       </div>
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;">
@@ -9862,6 +9879,16 @@ function renderTeamResult(teams, players, noHandi, modeLabel, soloGroups, teamPl
 
 function renderTeamResultSplit(aTeams, bTeams, aPlayers, bPlayers, noHandi, splitSoloPlayers) {
   splitSoloPlayers = splitSoloPlayers || [];
+  // localStorage 저장 (레인 배정표 등에서 참조)
+  if(!renderTeamResultSplit._saving) {
+    renderTeamResultSplit._saving = true;
+    try {
+      localStorage.setItem('meetball_teamResult', JSON.stringify({
+        aTeams, bTeams, aPlayers, bPlayers, noHandi, splitSoloPlayers, mode:'split', ts:Date.now()
+      }));
+    } catch(e) {}
+    renderTeamResultSplit._saving = false;
+  }
   const result = document.getElementById('tb_result');
   const aAvg = aPlayers.length ? Math.round(aPlayers.reduce((s,p)=>s+p.avg,0)/aPlayers.length) : 0;
   const bAvg = bPlayers.length ? Math.round(bPlayers.reduce((s,p)=>s+p.avg,0)/bPlayers.length) : 0;
@@ -9953,6 +9980,7 @@ function renderTeamResultSplit(aTeams, bTeams, aPlayers, bPlayers, noHandi, spli
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <button onclick="buildTeams()" class="btn btn-secondary" style="font-size:12px;padding:6px 14px;">🔀 다시 편성</button>
         <button onclick="copyTeamResult()" class="btn btn-secondary" style="font-size:12px;padding:6px 14px;">📋 복사</button>
+        <button onclick="openLaneAssign()" class="btn btn-secondary" style="font-size:12px;padding:6px 14px;background:rgba(99,102,241,0.15);border-color:rgba(99,102,241,0.4);color:#818cf8;">🎳 레인 배정표</button>
       </div>
     </div>
 
@@ -10008,6 +10036,508 @@ function copyTeamResult() {
     document.execCommand('copy'); document.body.removeChild(el);
     toast('복사 완료!');
   });
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// 🎳 레인 배정표 v3  (1게임 기준 로테이션)
+// ══════════════════════════════════════════════════════════════
+window._laneState  = { perLane:3, laneCount:8, gameCount:3, startLane:5 };
+window._laneGames  = null;   // 게임별 lanes 데이터
+window._laneBase   = null;   // 1게임 확정 슬롯 (로테이션 기준)
+window._moveSel    = null;
+
+/* ── 진입점 ─────────────────────────────────────────────── */
+function openLaneAssign() {
+  let saved;
+  try { saved = JSON.parse(localStorage.getItem('meetball_teamResult')); } catch(e){}
+
+  let all = [];
+
+  if(saved) {
+    // 팀전 선수
+    if(saved.mode==='split'){
+      [...(saved.aTeams||[]),...(saved.bTeams||[])].forEach(t=>
+        (t.members||[]).forEach(p=>all.push({...p,teamName:t.name,teamColor:t.color})));
+    } else {
+      (saved.teams||[]).forEach(t=>
+        (t.members||[]).forEach(p=>all.push({...p,teamName:t.name,teamColor:t.color})));
+    }
+    // 개인전 선수 (soloGroups / splitSoloPlayers)
+    const solos = saved.soloGroups || saved.splitSoloPlayers || [];
+    solos.forEach(group => {
+      const members = Array.isArray(group.members) ? group.members : [group];
+      members.forEach(p => {
+        if(p && p.name) all.push({...p, teamName: p.teamName || group.label || '개인전', teamColor: p.teamColor || group.color || '#eab308'});
+      });
+    });
+  }
+
+  // 팀편성 결과가 없거나 선수가 0명이면 → 체크된 참가자 전원으로 개인전 배정
+  if(!all.length){
+    const checked = getCheckedMembers ? getCheckedMembers() : [];
+    if(checked.length === 0){ toast('참가자를 먼저 선택해주세요.','error'); return; }
+    checked.forEach(name => {
+      all.push({ name, avg: getMemberAvg?getMemberAvg(name):0, teamName:'개인전', teamColor:'#eab308' });
+    });
+  }
+
+  window._laneAllPlayers = all;
+  window._laneAllPlayers = all;
+  window._laneBase = null;   // 초기화
+  buildLaneGames();
+  renderLaneModal();
+}
+
+/* ── 레인 데이터 빌드 ───────────────────────────────────── */
+function buildLaneGames() {
+  const { perLane, laneCount, gameCount, startLane } = window._laneState;
+  const players = window._laneAllPlayers || [];
+  const total   = players.length;
+
+  // 1게임 슬롯: _laneBase가 있으면 그걸 사용, 없으면 순서대로 배분
+  function makeBaseSlots() {
+    const slots = [];
+    for(let l=0; l<laneCount; l++){
+      const laneSlots = [];
+      for(let s=0; s<perLane; s++){
+        const idx = l*perLane + s;
+        laneSlots.push(idx < total ? {...players[idx]} : null);
+      }
+      slots.push(laneSlots);
+    }
+    return slots;
+  }
+
+  // _laneBase가 없거나 레인/인원 설정이 바뀌면 재생성
+  if(!window._laneBase ||
+     window._laneBase.length !== laneCount ||
+     window._laneBase[0].length !== perLane) {
+    window._laneBase = makeBaseSlots();
+  }
+
+  // 게임별 로테이션: 테이블(2레인 쌍) 단위로 오른쪽 이동
+  // 2게임: 테이블1→테이블2 자리, 테이블2→테이블3 자리... (순환)
+  const pairCount = Math.ceil(laneCount / 2);
+  const games = [];
+  for(let g=0; g<gameCount; g++){
+    const lanes = [];
+    for(let l=0; l<laneCount; l++){
+      const pairIdx    = Math.floor(l / 2);   // 현재 테이블 인덱스
+      const laneInPair = l % 2;               // 테이블 내 위(0)/아래(1) 레인
+      // g게임: 이 테이블에 앉을 선수 = (pairIdx - g) 테이블의 선수
+      const srcPair    = ((pairIdx - g) % pairCount + pairCount) % pairCount;
+      const srcLaneIdx = srcPair * 2 + laneInPair;
+      const base       = window._laneBase[srcLaneIdx] || [];
+      lanes.push({
+        laneNo: startLane + l,
+        slots: base.map(p => p ? {...p} : null)
+      });
+    }
+    games.push({ gameNo: g+1, lanes });
+  }
+  window._laneGames = games;
+}
+
+/* ── 모달 렌더 ──────────────────────────────────────────── */
+function renderLaneModal() {
+  let modal = document.getElementById('laneModal');
+  if(!modal){
+    modal = document.createElement('div');
+    modal.id = 'laneModal';
+    modal.style.cssText = 'position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,0.88);backdrop-filter:blur(8px);overflow-y:auto;padding:16px;';
+    document.body.appendChild(modal);
+  }
+  const { perLane, laneCount, gameCount, startLane } = window._laneState;
+  const total = (window._laneAllPlayers||[]).length;
+
+  const settingItem = (key, label, min, max) => `
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span style="font-size:12px;color:rgba(255,255,255,0.6);">${label}</span>
+      <button onclick="adjLane('${key}',-1)" style="background:rgba(255,255,255,0.1);border:none;color:#fff;border-radius:6px;width:26px;height:26px;cursor:pointer;font-size:16px;line-height:1;">−</button>
+      <span id="lc_${key}" style="min-width:26px;text-align:center;font-weight:700;font-size:15px;color:#fff;">${window._laneState[key]}</span>
+      <button onclick="adjLane('${key}',1)" style="background:rgba(255,255,255,0.1);border:none;color:#fff;border-radius:6px;width:26px;height:26px;cursor:pointer;font-size:16px;line-height:1;">+</button>
+    </div>`;
+
+  modal.innerHTML = `
+  <div style="max-width:1200px;margin:0 auto;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+      <div style="font-weight:700;font-size:20px;color:#fff;">🎳 레인 배정표
+        <span style="font-size:13px;color:rgba(255,255,255,0.4);font-weight:400;margin-left:8px;">전체 ${total}명</span>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button onclick="downloadLaneXlsx()" style="background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.4);color:#22c55e;border-radius:8px;padding:6px 14px;cursor:pointer;font-size:12px;">📊 엑셀</button>
+        <div style="display:flex;align-items:center;gap:4px;">
+          <select id="lanePaperSize" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:#f87171;border-radius:8px;padding:5px 8px;font-size:11px;cursor:pointer;">
+            <option value="A3 landscape">A3 가로</option>
+            <option value="A3 portrait">A3 세로</option>
+            <option value="A4 landscape">A4 가로</option>
+            <option value="A4 portrait">A4 세로</option>
+            <option value="B4 landscape">B4 가로</option>
+            <option value="B4 portrait">B4 세로</option>
+          </select>
+          <button onclick="previewLanePdf()" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.4);color:#f87171;border-radius:8px;padding:6px 14px;cursor:pointer;font-size:12px;">📄 PDF</button>
+        </div>
+        <button onclick="closeLaneModal()" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;border-radius:8px;padding:6px 14px;cursor:pointer;font-size:13px;">✕ 닫기</button>
+      </div>
+    </div>
+
+    <!-- 설정 바 -->
+    <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:12px 16px;margin-bottom:16px;display:flex;gap:16px;flex-wrap:wrap;align-items:center;">
+      ${settingItem('laneCount','레인 수',1,20)}
+      ${settingItem('perLane','레인당 인원',1,10)}
+      ${settingItem('gameCount','게임 수',1,5)}
+      ${settingItem('startLane','시작 레인번호',1,30)}
+    </div>
+
+    <!-- 안내 -->
+    <div style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.25);border-radius:8px;padding:8px 14px;margin-bottom:12px;font-size:12px;color:rgba(255,255,255,0.7);">
+      💡 <b style="color:#818cf8;">1게임</b>만 편집하세요 — 2·3게임은 오른쪽으로 자동 로테이션됩니다. &nbsp;|&nbsp; 이름 클릭 → 다른 칸 클릭으로 교체 (빈 칸도 가능)
+    </div>
+
+    <div id="laneTableWrap">${renderLaneTableHTML()}</div>
+  </div>
+
+  <!-- PDF 미리보기 -->
+  <div id="pdfPreviewWrap" style="display:none;position:fixed;inset:0;z-index:3000;background:rgba(0,0,0,0.92);overflow-y:auto;padding:20px;">
+    <div style="max-width:960px;margin:0 auto;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <div style="font-weight:700;font-size:18px;color:#fff;">📄 PDF 미리보기</div>
+        <div style="display:flex;gap:8px;">
+          <button onclick="downloadLanePdf()" style="background:rgba(239,68,68,0.2);border:1px solid rgba(239,68,68,0.4);color:#f87171;border-radius:8px;padding:6px 16px;cursor:pointer;">⬇️ PDF 저장</button>
+          <button onclick="document.getElementById('pdfPreviewWrap').style.display='none'" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;border-radius:8px;padding:6px 14px;cursor:pointer;">✕</button>
+        </div>
+      </div>
+      <div id="pdfCanvas" style="background:#fff;border-radius:8px;padding:16px;"></div>
+    </div>
+  </div>`;
+}
+
+/* ── 설정 변경 ──────────────────────────────────────────── */
+function adjLane(key, delta) {
+  const limits = { laneCount:[1,20], perLane:[1,10], gameCount:[1,5], startLane:[1,30] };
+  const [mn,mx] = limits[key];
+  window._laneState[key] = Math.max(mn, Math.min(mx, window._laneState[key]+delta));
+  const el = document.getElementById('lc_'+key);
+  if(el) el.textContent = window._laneState[key];
+  // 레인 수 / 인원 수 바뀌면 _laneBase 초기화
+  if(key==='laneCount' || key==='perLane') window._laneBase = null;
+  buildLaneGames();
+  document.getElementById('laneTableWrap').innerHTML = renderLaneTableHTML();
+}
+
+/* ── 팀 색상 맵 ─────────────────────────────────────────── */
+const LANE_BG = ['#fef3c7','#dbeafe','#fce7f3','#d1fae5','#ede9fe','#fee2e2','#e0f2fe','#fefce8','#fff7ed','#ecfdf5'];
+function getLaneBgMap() {
+  const map = {}; let i=0;
+  (window._laneAllPlayers||[]).forEach(p=>{ if(!(p.teamName in map)) map[p.teamName]=LANE_BG[i++%LANE_BG.length]; });
+  return map;
+}
+
+/* ── 테이블 HTML ─────────────────────────────────────────── */
+function renderLaneTableHTML() {
+  const games = window._laneGames;
+  if(!games) return '';
+  const bgMap = getLaneBgMap();
+  const sel   = window._moveSel;
+  let html = '';
+
+  games.forEach((game,gi) => {
+    const isGame1 = gi===0;
+    html += `<div style="margin-bottom:24px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+        <div style="background:${isGame1?'#4f46e5':'#0f172a'};color:#fff;font-weight:700;font-size:13px;padding:5px 14px;border-radius:8px;">${game.gameNo}게임</div>
+        ${isGame1 ? '<span style="font-size:11px;color:#818cf8;">✏️ 편집 가능</span>' : '<span style="font-size:11px;color:rgba(255,255,255,0.3);">🔄 자동 로테이션</span>'}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;">`;
+
+    for(let i=0; i<game.lanes.length; i+=2){
+      const pair = game.lanes.slice(i,i+2);
+      html += `<div style="background:#1e293b;border:1px solid rgba(255,255,255,${isGame1?'0.15':'0.06'});border-radius:10px;overflow:hidden;">`;
+
+      pair.forEach((lane,pi) => {
+        html += `<div style="display:flex;${pi<pair.length-1?'border-bottom:1px solid rgba(255,255,255,0.06);':''}">
+          <div style="background:#0f172a;display:flex;align-items:center;justify-content:center;min-width:38px;font-size:20px;font-weight:900;color:#94a3b8;border-right:1px solid rgba(255,255,255,0.08);padding:6px;">
+            ${lane.laneNo}
+          </div>
+          <table style="width:100%;border-collapse:collapse;">
+            <tr style="background:rgba(255,255,255,0.04);">
+              <th style="padding:4px 8px;font-size:10px;color:#475569;font-weight:600;border-bottom:1px solid rgba(255,255,255,0.06);text-align:left;">이름</th>
+              <th style="padding:4px 6px;font-size:10px;color:#475569;font-weight:600;border-bottom:1px solid rgba(255,255,255,0.06);text-align:left;">팀</th>
+              <th style="padding:4px 6px;font-size:10px;color:#475569;font-weight:600;border-bottom:1px solid rgba(255,255,255,0.06);width:40px;text-align:center;">점수</th>
+            </tr>
+            ${lane.slots.map((p,si) => {
+              const isSelected = isGame1 && sel && sel.laneNo===lane.laneNo && sel.slotIdx===si;
+              const rowBg = isSelected ? 'rgba(234,179,8,0.2)' : '';
+              const nameColor = isSelected ? '#fbbf24' : (p ? '#e2e8f0' : 'rgba(255,255,255,0.12)');
+              const teamBg = p ? (bgMap[p.teamName]||'#f1f5f9') : 'transparent';
+              const clickable = isGame1; // 1게임만 클릭 가능
+              return `<tr style="border-bottom:1px solid rgba(255,255,255,0.04);background:${rowBg};${clickable?'cursor:pointer;':''}" ${clickable?`onclick="moveMember(${lane.laneNo},${si})"`:''}>
+                <td style="padding:5px 8px;font-size:12px;font-weight:600;color:${nameColor};">${p?p.name:'─'}</td>
+                <td style="padding:5px 6px;">${(p && p.teamName && p.teamName!=='개인전' && !p.teamName.includes('그룹'))?`<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:${teamBg};color:#334155;font-weight:600;">${p.teamName}</span>`:''}</td>
+                <td style="padding:5px 6px;border-left:1px solid rgba(255,255,255,0.06);text-align:center;"></td>
+              </tr>`;
+            }).join('')}
+          </table>
+        </div>`;
+      });
+
+      html += `</div>`;
+    }
+    html += `</div></div>`;
+  });
+  return html;
+}
+
+/* ── 선수 교체 (1게임만) ────────────────────────────────── */
+function moveMember(laneNo, slotIdx) {
+  const prev = window._moveSel;
+  const { startLane } = window._laneState;
+  const laneIdx = laneNo - startLane;
+
+  if(!prev){
+    window._moveSel = { laneNo, slotIdx };
+    document.getElementById('laneTableWrap').innerHTML = renderLaneTableHTML();
+    const p = window._laneBase[laneIdx]?.[slotIdx];
+    toast(`${p?p.name:'빈 칸'} 선택 — 교체할 위치 클릭`, 'success');
+    return;
+  }
+  // 같은 칸 재클릭 = 취소
+  if(prev.laneNo===laneNo && prev.slotIdx===slotIdx){
+    window._moveSel = null;
+    document.getElementById('laneTableWrap').innerHTML = renderLaneTableHTML();
+    toast('선택 취소','error'); return;
+  }
+
+  const prevIdx = prev.laneNo - startLane;
+  const base = window._laneBase;
+
+  // 슬롯 교체
+  const tmp = base[prevIdx][prev.slotIdx];
+  base[prevIdx][prev.slotIdx] = base[laneIdx][slotIdx];
+  base[laneIdx][slotIdx] = tmp;
+
+  const nameA = tmp ? tmp.name : '빈 칸';
+  const nameB = base[prevIdx][prev.slotIdx] ? base[prevIdx][prev.slotIdx].name : '빈 칸';
+  toast(`✅ ${nameA} ↔ ${nameB} 교체 → 전 게임 반영`, 'success');
+
+  window._moveSel = null;
+  buildLaneGames(); // 로테이션 재계산
+  document.getElementById('laneTableWrap').innerHTML = renderLaneTableHTML();
+}
+
+function closeLaneModal() {
+  document.getElementById('laneModal')?.remove();
+  window._moveSel = null;
+}
+
+/* ── 엑셀 ──────────────────────────────────────────────── */
+function downloadLaneXlsx() {
+  if(window.XLSX){ buildLaneXlsx(); return; }
+  const s=document.createElement('script');
+  s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+  s.onload=buildLaneXlsx; document.head.appendChild(s);
+}
+
+function buildLaneXlsx() {
+  const games = window._laneGames;
+  if(!games) return;
+
+  const wb = XLSX.utils.book_new();
+  const ws = {};
+  const merges = [];
+
+  // 이미지 레이아웃:
+  // 열: [게임번호] [레인번호|이름|점수] [레인번호|이름|점수] ... (쌍마다 6열, 쌍 사이 빈열1)
+  // 행: 게임마다 [헤더행1] + [선수행N] (두 레인 세로로 쌓임)
+
+  const GCOL    = 0;   // 게임번호 열(0-indexed)
+  const BLK     = 3;   // 레인번호+이름+점수
+  const PAIR_W  = BLK * 2 + 1; // 한 쌍(2레인 가로): 레인+이름+점수+빈+레인+이름+점수 = 7
+  const pairStartCol = (pi) => 1 + pi * PAIR_W;
+
+  const enc  = (r,c) => XLSX.utils.encode_cell({r,c});
+  const S    = (r,c,v,s) => { ws[enc(r,c)] = {v, t:'s', s}; };
+
+  // 스타일 헬퍼
+  const gameStyle = { font:{name:'맑은 고딕',bold:true,sz:13,color:{rgb:'FFFFFF'}},
+    fill:{fgColor:{rgb:'1E3A5F'}}, alignment:{horizontal:'center',vertical:'center'},
+    border:{top:{style:'thin'},bottom:{style:'thin'},left:{style:'thin'},right:{style:'thin'}} };
+  const laneNumStyle = (bg) => ({ font:{name:'맑은 고딕',bold:true,sz:16},
+    fill:{fgColor:{rgb:bg}}, alignment:{horizontal:'center',vertical:'center'},
+    border:{top:{style:'thin'},bottom:{style:'thin'},left:{style:'thin'},right:{style:'thin'}} });
+  const hdrStyle = { font:{name:'맑은 고딕',bold:true,sz:10},
+    fill:{fgColor:{rgb:'F1F5F9'}}, alignment:{horizontal:'center',vertical:'center'},
+    border:{top:{style:'thin'},bottom:{style:'thin'},left:{style:'thin'},right:{style:'thin'}} };
+  const nameStyle = { font:{name:'맑은 고딕',sz:11},
+    alignment:{horizontal:'left',vertical:'center'},
+    border:{top:{style:'thin'},bottom:{style:'thin'},left:{style:'thin'},right:{style:'thin'}} };
+  const scoreStyle = { font:{name:'맑은 고딕',sz:11},
+    alignment:{horizontal:'center',vertical:'center'},
+    border:{top:{style:'thin'},bottom:{style:'thin'},left:{style:'thin'},right:{style:'thin'}} };
+  const emptyStyle = { border:{top:{style:'thin'},bottom:{style:'thin'},left:{style:'thin'},right:{style:'thin'}} };
+
+  const PAIR_BG = ['FEF3C7','DBEAFE','FCE7F3','D1FAE5','EDE9FE','FEE2E2','E0F2FE','FEF9C3'];
+
+  let curRow = 0;
+
+  games.forEach((game, gi) => {
+    const lanes    = game.lanes;
+    const perLane  = Math.max(...lanes.map(l=>l.slots.length));
+    const pairCount = Math.ceil(lanes.length / 2);
+
+    // 각 쌍에서 두 레인이 세로로: 헤더+선수 / 헤더+선수
+    // 게임 전체 행수 = (헤더1+perLane) * 2 = 각 레인이 순서대로
+    const laneH    = 1 + perLane; // 헤더행 + 선수행
+    const gameH    = laneH * 2;   // 두 레인 세로 적층
+    const gameEnd  = curRow + gameH - 1;
+
+    // 게임번호 세로병합
+    ws[enc(curRow, GCOL)] = { v:`${game.gameNo}게임`, t:'s', s:gameStyle };
+    merges.push({s:{r:curRow,c:GCOL}, e:{r:gameEnd,c:GCOL}});
+
+    // 쌍별 레인 렌더
+    for(let pi=0; pi<pairCount; pi++){
+      const laneA = lanes[pi*2];
+      const laneB = lanes[pi*2+1];
+      const sc    = pairStartCol(pi);
+      const bg    = PAIR_BG[pi % PAIR_BG.length];
+
+      [laneA, laneB].forEach((lane, li) => {
+        if(!lane) return;
+        const lRow = curRow + li * laneH;
+
+        // 레인번호 (세로병합: laneH행)
+        ws[enc(lRow, sc)] = { v:lane.laneNo, t:'n', s:laneNumStyle(bg) };
+        merges.push({s:{r:lRow,c:sc}, e:{r:lRow+laneH-1,c:sc}});
+
+        // 헤더
+        ws[enc(lRow, sc+1)] = { v:'이름', t:'s', s:hdrStyle };
+        ws[enc(lRow, sc+2)] = { v:'점수', t:'s', s:hdrStyle };
+
+        // 선수행
+        for(let si=0; si<perLane; si++){
+          const p = lane.slots[si];
+          const r = lRow + 1 + si;
+          ws[enc(r, sc+1)] = { v:(p&&p.name)||'', t:'s', s:nameStyle };
+          ws[enc(r, sc+2)] = { v:'', t:'s', s:scoreStyle };
+        }
+
+        // 쌍 경계 빈열 (구분용)
+        if(pi < pairCount-1){
+          for(let r=curRow; r<=gameEnd; r++){
+            if(!ws[enc(r, sc+BLK)]) ws[enc(r, sc+BLK)] = { v:'', t:'s', s:{} };
+          }
+        }
+      });
+    }
+
+    curRow = gameEnd + 2; // 게임 사이 빈 2행
+  });
+
+  // ref 범위
+  const maxCol = 1 + Math.ceil((games[0]?.lanes?.length||0)/2) * PAIR_W;
+  ws['!ref']    = XLSX.utils.encode_range({s:{r:0,c:0}, e:{r:curRow+1,c:maxCol}});
+  ws['!merges'] = merges;
+
+  // 열 너비
+  const colW = [{wch:8}]; // 게임번호
+  const pairCount0 = Math.ceil((games[0]?.lanes?.length||0)/2);
+  for(let pi=0; pi<pairCount0; pi++){
+    colW.push({wch:4},{wch:12},{wch:7},{wch:1}); // 레인번호,이름,점수,빈
+  }
+  ws['!cols'] = colW;
+
+  // 행 높이
+  ws['!rows'] = Array.from({length:curRow+2}, () => ({hpt:22}));
+
+  XLSX.utils.book_append_sheet(wb, ws, '레인배정표');
+  const date = new Date().toLocaleDateString('ko-KR').replace(/[\. ]+/g,'-').replace(/-$/,'');
+  XLSX.writeFile(wb, `레인배정표_${date}.xlsx`);
+  toast('📊 엑셀 저장 완료!','success');
+}
+
+/* ── PDF ────────────────────────────────────────────────── */
+function previewLanePdf() {
+  document.getElementById('pdfPreviewWrap').style.display='block';
+  document.getElementById('pdfCanvas').innerHTML = buildLanePdfHtml();
+}
+
+function buildLanePdfHtml() {
+  const games = window._laneGames;
+  if(!games) return '';
+  const bgMap = getLaneBgMap();
+
+  const paper = document.getElementById('lanePaperSize')?.value || 'A4 landscape';
+  const isLandscape = paper.includes('landscape');
+  const isB4 = paper.includes('B4');
+  // 용지 크기에 따라 스케일 조정
+  // A4 가로: 297×210mm / A4 세로: 210×297mm
+  // B4 가로: 364×257mm / B4 세로: 257×364mm
+  // 게임3×쌍4 구조 → 가로에 4쌍, 세로에 3게임
+  const isA3 = paper.includes('A3');
+  const fs  = isA3 ? 12 : isB4 ? 10 : 9;    // 기본 폰트
+  const lfs = isA3 ? 20 : isB4 ? 16 : 14;   // 레인번호 폰트
+  const gfs = isA3 ? 13 : isB4 ? 11 : 10;   // 게임번호 폰트
+  const pd  = isA3 ? '4px 7px' : isB4 ? '3px 5px' : '2px 4px'; // 패딩
+  const spd = isA3 ? '6px 7px' : isB4 ? '4px 5px' : '3px 4px'; // 점수 패딩
+
+  let html = `<div style="font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;color:#000;font-size:${fs}px;">
+  <div style="text-align:center;font-size:13px;font-weight:bold;margin-bottom:8px;">🎳 레인 배정표</div>`;
+
+  games.forEach(game => {
+    html += `<div style="margin-bottom:16px;page-break-inside:avoid;">
+    <div style="background:#1e3a5f;color:#fff;font-weight:bold;font-size:${gfs}px;padding:2px 8px;border-radius:3px;margin-bottom:6px;display:inline-block;">${game.gameNo}게임</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">`;
+
+    for(let i=0; i<game.lanes.length; i+=2){
+      const pair = game.lanes.slice(i,i+2);
+      html += `<div style="border:1.5px solid #cbd5e1;border-radius:6px;overflow:hidden;min-width:180px;flex:1;">`;
+      pair.forEach((lane,pi)=>{
+        html += `<div style="display:flex;${pi<pair.length-1?'border-bottom:1.5px solid #cbd5e1;':''}">
+          <div style="background:#334155;color:#fff;font-weight:900;font-size:${lfs}px;display:flex;align-items:center;justify-content:center;min-width:30px;border-right:1.5px solid #cbd5e1;padding:3px;">${lane.laneNo}</div>
+          <table style="width:100%;border-collapse:collapse;font-size:${fs}px;">
+            <tr style="background:#f8fafc;">
+              <th style="padding:3px 6px;border-bottom:1px solid #e2e8f0;color:#64748b;text-align:left;width:50px;">이름</th>
+              <th style="padding:${pd};border-bottom:1px solid #e2e8f0;color:#64748b;text-align:left;width:55px;">팀</th>
+              <th style="padding:3px 6px;border-bottom:1px solid #e2e8f0;color:#64748b;text-align:center;">점수</th>
+            </tr>
+            ${lane.slots.map(p=>{
+              const bg = p?(bgMap[p.teamName]||'#f1f5f9'):'#fff';
+              return `<tr style="border-bottom:1px solid #f1f5f9;">
+                <td style="padding:${pd};font-weight:${p?600:400};color:${p?'#111':'#ccc'};">${p?p.name:''}</td>
+                <td style="padding:4px 6px;">${(p && p.teamName && p.teamName!=='개인전' && !p.teamName.includes('그룹'))?`<span style="background:${bg};padding:1px 5px;border-radius:3px;font-size:10px;color:#334155;">${p.teamName}</span>`:''}</td>
+                <td style="padding:${spd};border:1px solid #cbd5e1;min-width:45px;"></td>
+              </tr>`;
+            }).join('')}
+          </table>
+        </div>`;
+      });
+      html += `</div>`;
+    }
+    html += `</div></div>`;
+  });
+  html += `</div>`;
+  return html;
+}
+
+function downloadLanePdf() {
+  const content = document.getElementById('pdfCanvas').innerHTML;
+  const paper = document.getElementById('lanePaperSize')?.value || 'A4 landscape';
+  const margin = '6mm';
+  const w = window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>레인배정표</title>
+  <style>
+    body{font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;margin:0;padding:${margin};}
+    @media print{
+      @page{size:${paper};margin:${margin};}
+      body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+      div,table,tr,td,th{page-break-inside:avoid;}
+    }
+  </style>
+  </head><body>${content}</body></html>`);
+  w.document.close(); w.focus();
+  setTimeout(()=>w.print(),400);
 }
 
 

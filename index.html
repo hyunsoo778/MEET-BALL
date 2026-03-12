@@ -9091,12 +9091,21 @@ function renderTeamBuilder(presetMembers) {
         <div id="tb_unified_options">
           <div class="input-group">
             <label>팀 수 (전체)</label>
+            <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px;">
+              <button onclick="setTeamSize('all',2)" class="btn btn-secondary" style="font-size:11px;padding:3px 9px;">2인조</button>
+              <button onclick="setTeamSize('all',3)" class="btn btn-secondary" style="font-size:11px;padding:3px 9px;">3인조</button>
+              <button onclick="setTeamSize('all',4)" class="btn btn-secondary" style="font-size:11px;padding:3px 9px;">4인조</button>
+            </div>
             <select id="tb_teamcount" onchange="updateBuilderStats()" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:14px;outline:none;font-family:inherit;width:fit-content;">
               <option value="2">2팀</option>
               <option value="3">3팀</option>
               <option value="4">4팀</option>
               <option value="5">5팀</option>
               <option value="6">6팀</option>
+              <option value="7">7팀</option>
+              <option value="8">8팀</option>
+              <option value="9">9팀</option>
+              <option value="10">10팀</option>
             </select>
           </div>
         </div>
@@ -9120,11 +9129,21 @@ function renderTeamBuilder(presetMembers) {
               <div id="tb_a_team_opts">
                 <div class="input-group">
                   <label style="color:#3b82f6;font-size:11px;">팀 수</label>
+                  <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;">
+                    <button onclick="setTeamSize('A',2)" class="btn btn-secondary" style="font-size:10px;padding:2px 7px;color:#3b82f6;">2인조</button>
+                    <button onclick="setTeamSize('A',3)" class="btn btn-secondary" style="font-size:10px;padding:2px 7px;color:#3b82f6;">3인조</button>
+                    <button onclick="setTeamSize('A',4)" class="btn btn-secondary" style="font-size:10px;padding:2px 7px;color:#3b82f6;">4인조</button>
+                  </div>
                   <select id="tb_teamcount_a" onchange="updateBuilderStats()" style="background:var(--bg3);border:1px solid rgba(59,130,246,0.4);color:var(--text);padding:6px 10px;border-radius:8px;font-size:13px;outline:none;font-family:inherit;width:100%;">
                     <option value="2">2팀</option>
                     <option value="3">3팀</option>
                     <option value="4">4팀</option>
                     <option value="5">5팀</option>
+                    <option value="6">6팀</option>
+                    <option value="7">7팀</option>
+                    <option value="8">8팀</option>
+                    <option value="9">9팀</option>
+                    <option value="10">10팀</option>
                   </select>
                 </div>
               </div>
@@ -9146,11 +9165,21 @@ function renderTeamBuilder(presetMembers) {
               <div id="tb_b_team_opts">
                 <div class="input-group">
                   <label style="color:#22c55e;font-size:11px;">팀 수</label>
+                  <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;">
+                    <button onclick="setTeamSize('B',2)" class="btn btn-secondary" style="font-size:10px;padding:2px 7px;color:#22c55e;">2인조</button>
+                    <button onclick="setTeamSize('B',3)" class="btn btn-secondary" style="font-size:10px;padding:2px 7px;color:#22c55e;">3인조</button>
+                    <button onclick="setTeamSize('B',4)" class="btn btn-secondary" style="font-size:10px;padding:2px 7px;color:#22c55e;">4인조</button>
+                  </div>
                   <select id="tb_teamcount_b" onchange="updateBuilderStats()" style="background:var(--bg3);border:1px solid rgba(34,197,94,0.4);color:var(--text);padding:6px 10px;border-radius:8px;font-size:13px;outline:none;font-family:inherit;width:100%;">
                     <option value="2">2팀</option>
                     <option value="3">3팀</option>
                     <option value="4">4팀</option>
                     <option value="5">5팀</option>
+                    <option value="6">6팀</option>
+                    <option value="7">7팀</option>
+                    <option value="8">8팀</option>
+                    <option value="9">9팀</option>
+                    <option value="10">10팀</option>
                   </select>
                 </div>
               </div>
@@ -9405,6 +9434,27 @@ function updateBuilderStats() {
 }
 
 // ── 팀편성 상태 저장 ──────────────────────────────────────
+// ── 인조 기반 팀 수 자동 설정 ────────────────────────────
+function setTeamSize(group, perTeam) {
+  const sel = getCheckedMembers();
+  const leagues = loadLeagues();
+  let count;
+  if(group === 'all') {
+    count = Math.round(sel.length / perTeam);
+    const el = document.getElementById('tb_teamcount');
+    if(el) { el.value = Math.max(2, Math.min(10, count)); }
+  } else {
+    const groupPlayers = sel.filter(n => (leagues[n]||'A') === group);
+    count = Math.round(groupPlayers.length / perTeam);
+    const elId = group === 'A' ? 'tb_teamcount_a' : 'tb_teamcount_b';
+    const el = document.getElementById(elId);
+    if(el) { el.value = Math.max(2, Math.min(10, count)); }
+  }
+  saveTbState();
+  updateBuilderStats();
+}
+
+
 function saveTbState() {
   try {
     const checked = Array.from(document.querySelectorAll('#teambuilderContent input[type=checkbox]:checked'))

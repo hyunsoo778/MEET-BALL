@@ -1,4 +1,4 @@
-<html lang="ko"><script src="chrome-extension://cpmkedoipcpimgecpmgpldfpohjplkpp/gt-window-provider-hedera.js"></script><head><script src="chrome-extension://cpmkedoipcpimgecpmgpldfpohjplkpp/gt-window-provider-hedera.js"></script><script src="chrome-extension://cpmkedoipcpimgecpmgpldfpohjplkpp/gt-window-provider-hedera.js"></script>
+<html lang="ko"><head>
 <meta charset="UTF-8">
   <!-- PWA 설정 -->
   <meta name="mobile-web-app-capable" content="yes">
@@ -7,9 +7,7 @@
   <meta name="apple-mobile-web-app-title" content="Meet Ball">
   <meta name="application-name" content="Meet Ball">
   <meta name="theme-color" content="#0a1628">
-  <link rel="manifest" href="manifest.json">
   <!-- 앱 아이콘 (iOS) -->
-  <link rel="apple-touch-icon" href="icon-192.png">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>🎳 Meet Ball</title>
@@ -15478,7 +15476,7 @@ function renderRounds() {
                 onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)';"
                 onmouseout="this.style.borderColor='rgba(239,68,68,0.3)';this.style.color='var(--text3)';">✕</button>` : ''}
             </div>
-            <div style="font-size:11px;color:var(--text3);">에버 ${Math.round(s.prevAvg)} · 핸디적용 <span style="color:var(--accent);font-weight:600;">${s.handiTotal}</span></div>
+            <div style="font-size:11px;color:var(--text3);">에버 ${s.g.length > 0 ? Math.round(s.total / s.g.length) : '-'} · 핸디적용 <span style="color:var(--accent);font-weight:600;">${s.handiTotal}</span></div>
           </div>
         </div>`;
       }).join('')}

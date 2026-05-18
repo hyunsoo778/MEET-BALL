@@ -600,8 +600,6 @@
         }
         const val = snap.val();
         if (val !== null) {
-          window._fbCache[key] = val;
-          const lsKey = LS_KEY_MAP[key];
           // 메모리 캐시에 저장
           window._fbCache[key] = val;
           // localStorage에도 동기화
@@ -1546,7 +1544,7 @@
       </div>
     </div>
     <div style="width:1px;background:var(--border);margin:0 8px;"></div>
-    <div id="adminBadge" class="admin-badge active" onclick="toggleAdmin()">🔓 관리자</div>
+    <div id="adminBadge" class="admin-badge" onclick="toggleAdmin()">🔒 관리자</div>
   </nav>
 </header>
 
@@ -10198,8 +10196,29 @@
     </div>
   </div>
 
-  <!-- 대회 등록 폼 (관리자) -->
-  
+  <!-- 대회 등록 폼 -->
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:24px;">
+    <div style="font-weight:700;font-size:14px;margin-bottom:14px;">🏟️ 대회 참가비 등록</div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:12px;">내용과 금액을 적고 관리자 로그인 후 등록하세요.</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+      <div class="input-group">
+        <label>내용</label>
+        <input type="text" id="te_name" placeholder="예) 2026 춘계 대회 참가비"
+          style="width:260px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:14px;outline:none;font-family:inherit;">
+      </div>
+      <div class="input-group">
+        <label>날짜</label>
+        <input type="date" id="te_date"
+          style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:14px;outline:none;font-family:inherit;">
+      </div>
+      <div class="input-group">
+        <label>금액 (원)</label>
+        <input type="number" id="te_fee" placeholder="30000" min="0" step="1000" inputmode="numeric"
+          style="width:130px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:14px;outline:none;font-family:'JetBrains Mono',monospace;">
+      </div>
+      <button class="btn btn-primary" onclick="if(typeof isAdmin !== 'undefined' && isAdmin){addTourneyEvent()}else{toggleAdmin()}">🔒 관리자 로그인 후 등록</button>
+    </div>
+  </div>
 
   <!-- 대회 목록 -->
   <div class="empty"><div class="empty-icon">🏟️</div><div class="empty-text">등록된 대회가 없습니다</div><div class="empty-sub">관리자가 대회를 등록하면 납부 현황을 관리할 수 있습니다</div></div>
@@ -10375,8 +10394,39 @@
   <!-- 찬조자별 누계 바 -->
   
 
-  <!-- 등록 폼 (관리자) -->
-  
+  <!-- 등록 폼 -->
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:20px;">
+    <div style="font-weight:700;font-size:14px;margin-bottom:14px;">🎁 찬조 등록</div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:12px;">찬조자, 내용, 금액을 적고 관리자 로그인 후 등록하세요.</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+      <div class="input-group">
+        <label>찬조자</label>
+        <input type="text" id="sp_name" placeholder="홍길동"
+          style="width:110px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:14px;outline:none;font-family:inherit;">
+      </div>
+      <div class="input-group">
+        <label>내용</label>
+        <input type="text" id="sp_reason" placeholder="예) 창립기념 찬조"
+          style="width:210px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:14px;outline:none;font-family:inherit;">
+      </div>
+      <div class="input-group">
+        <label>금액 (원)</label>
+        <input type="number" id="sp_amount" placeholder="50000" min="0" step="1000" inputmode="numeric"
+          style="width:130px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:14px;outline:none;font-family:'JetBrains Mono',monospace;">
+      </div>
+      <div class="input-group">
+        <label>날짜</label>
+        <input type="date" id="sp_date"
+          style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:14px;outline:none;font-family:inherit;">
+      </div>
+      <div class="input-group">
+        <label>메모 (선택)</label>
+        <input type="text" id="sp_note" placeholder="추가 메모"
+          style="width:150px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:14px;outline:none;font-family:inherit;">
+      </div>
+      <button class="btn btn-primary" style="background:var(--yellow);color:#000;font-weight:700;" onclick="if(typeof isAdmin !== 'undefined' && isAdmin){addSponsor()}else{toggleAdmin()}">🔒 관리자 로그인 후 등록</button>
+    </div>
+  </div>
 
   <!-- 내역 목록 -->
   <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden;">
@@ -13073,7 +13123,7 @@ function checkAdminPw() {
     const txBtn = document.getElementById('moneytab_txscan');
     if(txBtn) txBtn.style.display = '';
     toast('관리자 모드 활성화 ✓', 'success');
-    refreshAll();
+    refreshAllViews();
   } else {
     input.classList.add('error');
     err.textContent = '비밀번호가 올바르지 않습니다';
@@ -13113,7 +13163,7 @@ function doLogout() {
     document.getElementById('ranking').classList.add('active');
   }
   toast('로그아웃 완료');
-  refreshAll();
+  refreshAllViews();
 }
 
 
@@ -13854,7 +13904,7 @@ function updateMemberLoginButton() {
   btn.title = name ? `${name}님으로 투표합니다` : '투표할 내 이름을 선택하세요';
 }
 
-function openMemberLogin() {
+function openMemberLogin(forceSelect = false) {
   const names = getLoginMemberNames();
   const current = getLoggedInMember();
   let modal = document.getElementById('memberLoginModal');
@@ -13874,11 +13924,16 @@ function openMemberLogin() {
       </select>
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px;">
         ${current ? `<button class="btn btn-secondary" onclick="clearMemberLogin()">해제</button>` : ''}
-        <button class="btn btn-secondary" onclick="closeMemberLogin()">취소</button>
+        ${forceSelect && !current ? '' : `<button class="btn btn-secondary" onclick="closeMemberLogin()">취소</button>`}
         <button class="btn btn-primary" onclick="saveMemberLogin()">저장</button>
       </div>
     </div>`;
   modal.style.display = 'flex';
+}
+
+function promptMemberLoginOnStart() {
+  if(getLoggedInMember()) return;
+  setTimeout(() => openMemberLogin(true), 250);
 }
 
 function closeMemberLogin() {
@@ -13927,7 +13982,10 @@ function renderMemberLoginNotice() {
   </div>`;
 }
 
-document.addEventListener('DOMContentLoaded', updateMemberLoginButton);
+document.addEventListener('DOMContentLoaded', () => {
+  updateMemberLoginButton();
+  promptMemberLoginOnStart();
+});
 
 // ── 회비·벌금·상금 탭 전환 ──
 let _currentMoneyTab = 'dues';
@@ -16065,6 +16123,7 @@ function addSponsor() {
   const date   = document.getElementById('sp_date').value;
   const note   = document.getElementById('sp_note').value.trim();
   if(!name)   { toast('이름을 입력하세요.', 'error'); return; }
+  if(!reason) { toast('내용을 입력하세요.', 'error'); return; }
   if(!amount) { toast('금액을 입력하세요.', 'error'); return; }
   const list = loadSponsors();
   list.unshift({ id:'sp'+Date.now(), name, amount, reason, date: date || new Date().toISOString().slice(0,10), note });
@@ -16143,26 +16202,26 @@ function renderSponsor() {
     }).join('')}
   </div>` : ''}
 
-  <!-- 등록 폼 (관리자) -->
-  ${isAdmin ? `
+  <!-- 등록 폼 -->
   <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:20px;">
     <div style="font-weight:700;font-size:14px;margin-bottom:14px;">🎁 찬조 등록</div>
+    ${!isAdmin ? `<div style="font-size:12px;color:var(--text3);margin-bottom:12px;">관리자 로그인 후 찬조 내용을 등록할 수 있습니다.</div>` : ''}
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
       <div class="input-group">
-        <label>이름</label>
+        <label>찬조자</label>
         <input type="text" id="sp_name" list="sp_name_list" placeholder="홍길동"
           style="width:110px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:14px;outline:none;font-family:inherit;">
         <datalist id="sp_name_list">${members.map(m=>`<option value="${m}">`).join('')}</datalist>
       </div>
       <div class="input-group">
-        <label>금액 (원)</label>
-        <input type="number" id="sp_amount" placeholder="50000" min="0" step="1000"
-          style="width:130px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:14px;outline:none;font-family:'JetBrains Mono',monospace;">
+        <label>내용</label>
+        <input type="text" id="sp_reason" placeholder="예) 창립기념 찬조"
+          style="width:210px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:14px;outline:none;font-family:inherit;">
       </div>
       <div class="input-group">
-        <label>사유</label>
-        <input type="text" id="sp_reason" placeholder="예) 창립기념 찬조"
-          style="width:180px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:14px;outline:none;font-family:inherit;">
+        <label>금액 (원)</label>
+        <input type="number" id="sp_amount" placeholder="50000" min="0" step="1000" inputmode="numeric"
+          style="width:130px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:14px;outline:none;font-family:'JetBrains Mono',monospace;">
       </div>
       <div class="input-group">
         <label>날짜</label>
@@ -16174,9 +16233,9 @@ function renderSponsor() {
         <input type="text" id="sp_note" placeholder="추가 메모"
           style="width:150px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:14px;outline:none;font-family:inherit;">
       </div>
-      <button class="btn btn-primary" style="background:var(--yellow);color:#000;font-weight:700;" onclick="addSponsor()">🎁 등록</button>
+      <button class="btn btn-primary" style="background:var(--yellow);color:#000;font-weight:700;" onclick="${isAdmin ? 'addSponsor()' : 'toggleAdmin()'}">${isAdmin ? '🎁 등록' : '🔒 관리자 로그인 후 등록'}</button>
     </div>
-  </div>` : ''}
+  </div>
 
   <!-- 내역 목록 -->
   <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden;">
@@ -16674,7 +16733,7 @@ function addTourneyEvent() {
   const name = document.getElementById('te_name').value.trim();
   const date = document.getElementById('te_date').value;
   const fee  = parseInt(document.getElementById('te_fee').value) || 0;
-  if(!name) { toast('대회명을 입력하세요.', 'error'); return; }
+  if(!name) { toast('내용을 입력하세요.', 'error'); return; }
   if(!fee)  { toast('참가비를 입력하세요.', 'error'); return; }
   const t = loadTourneys();
   // 현재 등록된 회원 모두 미납으로 초기화
@@ -16774,15 +16833,15 @@ function renderTourney() {
     </div>
   </div>
 
-  <!-- 대회 등록 폼 (관리자) -->
-  ${isAdmin ? `
+  <!-- 대회 등록 폼 -->
   <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:24px;">
-    <div style="font-weight:700;font-size:14px;margin-bottom:14px;">🏟️ 대회 등록</div>
+    <div style="font-weight:700;font-size:14px;margin-bottom:14px;">🏟️ 대회 참가비 등록</div>
+    ${!isAdmin ? `<div style="font-size:12px;color:var(--text3);margin-bottom:12px;">관리자 로그인 후 대회 참가비 내용을 등록할 수 있습니다.</div>` : ''}
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
       <div class="input-group">
-        <label>대회명</label>
-        <input type="text" id="te_name" placeholder="예) 2026 춘계 대회"
-          style="width:200px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:14px;outline:none;font-family:inherit;">
+        <label>내용</label>
+        <input type="text" id="te_name" placeholder="예) 2026 춘계 대회 참가비"
+          style="width:260px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:14px;outline:none;font-family:inherit;">
       </div>
       <div class="input-group">
         <label>날짜</label>
@@ -16790,13 +16849,13 @@ function renderTourney() {
           style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:14px;outline:none;font-family:inherit;">
       </div>
       <div class="input-group">
-        <label>참가비 (원)</label>
-        <input type="number" id="te_fee" placeholder="30000" min="0" step="1000"
+        <label>금액 (원)</label>
+        <input type="number" id="te_fee" placeholder="30000" min="0" step="1000" inputmode="numeric"
           style="width:130px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:14px;outline:none;font-family:'JetBrains Mono',monospace;">
       </div>
-      <button class="btn btn-primary" onclick="addTourneyEvent()">🏟️ 등록</button>
+      <button class="btn btn-primary" onclick="${isAdmin ? 'addTourneyEvent()' : 'toggleAdmin()'}">${isAdmin ? '🏟️ 등록' : '🔒 관리자 로그인 후 등록'}</button>
     </div>
-  </div>` : ''}
+  </div>
 
   <!-- 대회 목록 -->
   ${t.events.length === 0

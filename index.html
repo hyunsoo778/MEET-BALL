@@ -17145,6 +17145,7 @@ function clearMemberLogin() {
 }
 
 function guardMemberVote(name) {
+  if(typeof isAdmin !== 'undefined' && isAdmin) return true;
   const loginName = getLoggedInMember();
   if(!loginName) {
     toast('먼저 내 이름을 선택해주세요', 'error');
@@ -17160,6 +17161,12 @@ function guardMemberVote(name) {
 
 function renderMemberLoginNotice() {
   const name = getLoggedInMember();
+  if(typeof isAdmin !== 'undefined' && isAdmin) {
+    return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.35);border-radius:12px;padding:12px 14px;margin-bottom:16px;">
+      <div style="font-size:13px;color:var(--blue);font-weight:700;">관리자 모드: 모든 회원 투표를 입력/수정할 수 있습니다</div>
+      <button class="btn btn-secondary" onclick="toggleAdmin()" style="font-size:12px;padding:6px 12px;">관리자 해제</button>
+    </div>`;
+  }
   return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;background:${name?'rgba(34,197,94,0.08)':'rgba(249,115,22,0.1)'};border:1px solid ${name?'rgba(34,197,94,0.28)':'rgba(249,115,22,0.35)'};border-radius:12px;padding:12px 14px;margin-bottom:16px;">
     <div style="font-size:13px;color:${name?'var(--green)':'var(--accent)'};font-weight:700;">${name ? `현재 ${name}님으로 투표 중입니다` : '투표 전에 내 이름을 선택해주세요'}</div>
     <button class="btn btn-secondary" onclick="openMemberLogin()" style="font-size:12px;padding:6px 12px;">${name ? '이름 변경' : '이름 선택'}</button>
@@ -19862,7 +19869,7 @@ function renderBanggae() {
                 const v = ev.votes[name];
                 const btnYes = `background:${v==='yes'?'rgba(34,197,94,0.2)':'var(--bg3)'};border:1px solid ${v==='yes'?'var(--green)':'var(--border)'};color:${v==='yes'?'var(--green)':'var(--text2)'}`;
                 const btnNo  = `background:${v==='no'?'rgba(239,68,68,0.2)':'var(--bg3)'};border:1px solid ${v==='no'?'var(--red)':'var(--border)'};color:${v==='no'?'var(--red)':'var(--text2)'}`;
-                const canEdit = getLoggedInMember() === name;
+                const canEdit = isAdmin || getLoggedInMember() === name;
                 const voteLock = canEdit ? '' : 'disabled title="내 이름으로 로그인한 투표만 변경할 수 있습니다"';
                 const lockStyle = canEdit ? '' : ';opacity:.35;cursor:not-allowed;filter:grayscale(1)';
                 return `
@@ -20515,7 +20522,7 @@ function renderVote() {
               <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;">
               ${allMembers.map(name => {
                 const v = poll.votes[name];
-                const canEdit = getLoggedInMember() === name;
+                const canEdit = isAdmin || getLoggedInMember() === name;
                 const voteLock = canEdit ? '' : 'disabled title="내 이름으로 로그인한 투표만 변경할 수 있습니다"';
                 const lockStyle = canEdit ? '' : ';opacity:.35;cursor:not-allowed;filter:grayscale(1)';
                 return `
@@ -22605,7 +22612,7 @@ function renderTnVote() {
 }
 
 function tnRenderVoteRow(name, current) {
-  const canEdit = getLoggedInMember() === name;
+  const canEdit = isAdmin || getLoggedInMember() === name;
   const voteLock = canEdit ? '' : 'disabled title="내 이름으로 로그인한 투표만 변경할 수 있습니다"';
   const lockStyle = canEdit ? '' : ';opacity:.35;cursor:not-allowed;filter:grayscale(1)';
   const btnStyle = (val, activeColor) => {

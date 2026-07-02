@@ -15644,6 +15644,8 @@
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
       <div style="font-weight:700;font-size:15px;">🏆 대진표</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-primary" onclick="tnRepairCurrentBracket()" style="background:#f97316;">🔄 대진 복구</button>
+        <button class="btn btn-green" onclick="tnOpenNextMatchEditor()">🎯 다음 경기 점수입력</button>
         <button class="btn btn-secondary" onclick="tnBackToSetup()">⬅️ 편성으로</button>
         <button class="btn btn-secondary" onclick="tnExportBracketPDF()">🖨️ 인쇄/PDF</button>
       </div>
@@ -23322,12 +23324,88 @@ function tnPropagateWinners(t) {
   t.champion = (finalMatch && finalMatch.winner) ? finalMatch.winner : null;
 }
 
+function tnEnsureMatches(t) {
+  if(!t) return false;
+  if(Array.isArray(t.matches) && t.matches.length > 0) return true;
+  const filled = Array.isArray(t.seeds) ? t.seeds.filter(Boolean).length : 0;
+  if(filled < 2) return false;
+  t.bracketSize = t.bracketSize || t.seeds.length;
+  tnBuildMatchesFromSeeds(t);
+  tnPropagateWinners(t);
+  return true;
+}
+
 function tnBackToSetup() {
   const current = tnGetCurrent();
   if(!current) return;
   if(!confirm('편성 화면으로 돌아갑니다. 계속할까요?')) return;
   tnUpdateCurrent(t => { t.stage = 'setup'; });
   renderTournament();
+}
+
+function tnRepairCurrentBracket() {
+  const current = tnGetCurrent();
+  if(!current) { toast('선택된 대회가 없습니다', 'error'); return; }
+  const seeds = Array.isArray(current.seeds) ? current.seeds : [];
+  const filled = seeds.filter(Boolean).length;
+  if(filled >= 2) {
+    tnUpdateCurrent(t => {
+      t.bracketSize = t.bracketSize || t.seeds.length;
+      tnBuildMatchesFromSeeds(t);
+      t.stage = 'playing';
+      tnPropagateWinners(t);
+    });
+    renderTournament();
+    toast('✅ 대진표를 다시 생성했습니다', 'success');
+    return;
+  }
+
+  const votes = current.votes || {};
+  const yesList = Object.keys(votes).filter(n => votes[n] === 'yes');
+  if(yesList.length >= 2) {
+    let newSize = 2;
+    while(newSize < yesList.length) newSize *= 2;
+    const newSeeds = tnMakeSeedsByType(yesList, newSize, current.matchType || 'seed');
+    tnUpdateCurrent(t => {
+      t.bracketSize = newSize;
+      t.seeds = newSeeds;
+      tnBuildMatchesFromSeeds(t);
+      t.stage = 'playing';
+      tnPropagateWinners(t);
+    });
+    renderTournament();
+    toast(`✅ 투표 참석자 ${yesList.length}명으로 대진표를 생성했습니다`, 'success');
+    return;
+  }
+
+  toast('대진을 만들 참가자가 부족합니다. 편성 화면에서 참가자를 배치해주세요.', 'error');
+  tnUpdateCurrent(t => { t.stage = 'setup'; });
+  renderTournament();
+}
+
+function tnOpenNextMatchEditor() {
+  const current = tnGetCurrent();
+  if(!current) { toast('선택된 대회가 없습니다', 'error'); return; }
+  if(!Array.isArray(current.matches) || current.matches.length === 0) {
+    tnRepairCurrentBracket();
+  }
+  const updated = tnGetCurrent();
+  const match = (updated.matches || [])
+    .filter(m => m.p1 && m.p2 && !m.winner)
+    .sort((a,b) => a.round - b.round || a.idx - b.idx)[0];
+  if(match) {
+    tnOpenMatchEditor(match.id);
+    return;
+  }
+  const editable = (updated.matches || [])
+    .filter(m => m.p1 && m.p2)
+    .sort((a,b) => a.round - b.round || a.idx - b.idx)[0];
+  if(editable) {
+    tnOpenMatchEditor(editable.id);
+    toast('입력 가능한 새 경기가 없어 저장된 경기를 열었습니다', 'success');
+    return;
+  }
+  toast('점수를 입력할 경기가 없습니다. 대진 복구 또는 편성을 먼저 해주세요.', 'error');
 }
 
 // ───────────────────────────────────────────────────────────────
@@ -23337,8 +23415,60 @@ function renderTnBracket() {
   const current = tnGetCurrent();
   if(!current) return;
   const bracketDiv = document.getElementById('tn_bracket');
+  if(!Array.isArray(current.matches) || current.matches.length === 0) {
+    const fixed = tnEnsureMatches(current);
+    if(fixed) {
+      tnUpdateCurrent(t => {
+        tnEnsureMatches(t);
+        t.stage = 'playing';
+      });
+      renderTournament();
+      return;
+    }
+    bracketDiv.innerHTML = `
+      <div class="empty" style="padding:26px 16px;">
+        <div class="empty-icon">🏆</div>
+        <div class="empty-text">아직 대진표가 생성되지 않았습니다</div>
+        <div class="empty-sub">편성 화면에서 참가자를 배치한 뒤 대진을 확정해주세요</div>
+        <button class="btn btn-primary" onclick="tnBackToSetup()" style="margin-top:14px;">⬅️ 편성으로 돌아가기</button>
+      </div>`;
+    return;
+  }
   const size = current.bracketSize;
   const numRounds = Math.log2(size);
+  const playableMatches = current.matches
+    .filter(m => m.p1 && m.p2 && !m.winner)
+    .sort((a,b) => a.round - b.round || a.idx - b.idx);
+  const finishedPlayableMatches = current.matches
+    .filter(m => m.p1 && m.p2 && m.winner)
+    .sort((a,b) => a.round - b.round || a.idx - b.idx);
+  const matchListHtml = `
+    <div style="margin-bottom:16px;background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:14px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+        <div style="font-size:13px;font-weight:800;">🎯 점수 입력할 경기</div>
+        <div style="font-size:11px;color:var(--text3);">대진표 박스를 누르거나 아래 버튼을 누르면 점수를 넣을 수 있습니다</div>
+      </div>
+      ${playableMatches.length ? `
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          ${playableMatches.map(m => `
+            <button class="btn btn-primary" onclick="tnOpenMatchEditor('${m.id}')" style="font-size:12px;padding:7px 12px;">
+              ${m.round}R-${m.idx+1} · ${m.p1} vs ${m.p2}
+            </button>`).join('')}
+        </div>` : `
+        <div style="font-size:12px;color:var(--text3);line-height:1.6;">
+          현재 입력할 경기가 없습니다. 부전승은 자동으로 다음 라운드에 올라가며, 이전 경기 결과가 저장되면 다음 경기 버튼이 나타납니다.
+        </div>`}
+      ${finishedPlayableMatches.length ? `
+        <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);">
+          <div style="font-size:11px;color:var(--text3);font-weight:700;margin-bottom:6px;">저장된 경기</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            ${finishedPlayableMatches.map(m => `
+              <button class="btn btn-secondary" onclick="tnOpenMatchEditor('${m.id}')" style="font-size:11px;padding:5px 9px;">
+                ${m.round}R-${m.idx+1} · ${m.winner} 승
+              </button>`).join('')}
+          </div>
+        </div>` : ''}
+    </div>`;
 
   // 각 셀 크기
   const CELL_W = 54;           // 선수 이름 세로 셀 너비
@@ -23354,7 +23484,7 @@ function renderTnBracket() {
   // 1라운드 박스는 2개 리프를 커버, 2라운드 박스는 4개 리프, ...
   // 최상단 결승 박스는 전체 폭
 
-  let html = `<div style="display:flex;flex-direction:column;align-items:center;min-width:${totalLeafWidth + 40}px;padding:20px 10px;">`;
+  let html = `${matchListHtml}<div style="overflow-x:auto;"><div style="display:flex;flex-direction:column;align-items:center;min-width:${totalLeafWidth + 40}px;padding:20px 10px;">`;
 
   // 라운드별 박스를 위에서 아래로 렌더 (결승이 맨 위)
   // 각 라운드의 매치는 brackets[round] = 배열
@@ -23504,7 +23634,7 @@ function renderTnBracket() {
     ${boxLabels}
     ${leaves}
   </svg>`;
-  html += `</div>`;
+  html += `</div></div>`;
 
   bracketDiv.innerHTML = html;
 }

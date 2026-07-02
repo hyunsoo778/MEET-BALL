@@ -16882,7 +16882,7 @@ function getScoreG(sc) {
   if(sc.g && Array.isArray(sc.g)) { const arr = [...sc.g]; while(arr.length < 3) arr.push(0); return arr; }
   return [];
 }
-function calcHandi(avg) { return Math.max(0, Math.min(50, Math.round(180 - avg))); }
+function calcHandi(avg) { return Math.max(0, Math.round(200 - avg)); }
 function checkFine(g3, baseAvg, name='') {
   if(g3.length < 3) return 0;
   const female = name && isFemale(name);
@@ -16963,7 +16963,7 @@ function getRoundAvgAndHandi(roundIdx, name) {
     return { avg, handi: calcHandi(avg) };
   }
   // BASE_PLAYERS에도 없는 완전 신규 회원
-  return { avg: 180, handi: calcHandi(180) };
+  return { avg: 200, handi: calcHandi(200) };
 }
 
 // 전체 벌금 데이터 계산 (회차별, 선수별)
@@ -22492,17 +22492,27 @@ function tnGetAvg(name) {
 }
 
 // 랭킹전 핸디 계산
-// 현재 앱 기존 규칙과 동일: 기준 180점 - 최신 누적 에버, 0~50점 제한
+// 기준 200점 - 최신 누적 에버
 function tnGetHandicap(name) {
   const avg = tnGetAvg(name);
   if(typeof calcHandi === 'function') return calcHandi(avg);
-  return Math.max(0, Math.min(50, Math.round(180 - avg)));
+  return Math.max(0, Math.round(200 - avg));
 }
 function tnIsHandicapEnabled(t) {
   return !!t && t.handicap === 'avg';
 }
 function tnFinalTotal(rawTotal, handi, games) {
   return rawTotal + ((Number(handi) || 0) * (Number(games) || 1));
+}
+function tnPlayedGameCount(scores1, scores2, fallbackGames = 1) {
+  const maxLen = Math.max(Array.isArray(scores1) ? scores1.length : 0, Array.isArray(scores2) ? scores2.length : 0);
+  let count = 0;
+  for(let i = 0; i < maxLen; i++) {
+    const a = Number(scores1?.[i]) || 0;
+    const b = Number(scores2?.[i]) || 0;
+    if(a > 0 || b > 0) count++;
+  }
+  return count || Number(fallbackGames) || 1;
 }
 
 function tnModeLabel(t) {
@@ -22521,8 +22531,9 @@ function tnApplyModeToMatches(t) {
     if(Array.isArray(m.scores1) && Array.isArray(m.scores2)) {
       const raw1 = m.scores1.reduce((a,b)=>a+(Number(b)||0),0);
       const raw2 = m.scores2.reduce((a,b)=>a+(Number(b)||0),0);
-      const t1 = tnFinalTotal(raw1, m.handi1, t.gamesPerMatch);
-      const t2 = tnFinalTotal(raw2, m.handi2, t.gamesPerMatch);
+      const playedGames = tnPlayedGameCount(m.scores1, m.scores2, t.gamesPerMatch);
+      const t1 = tnFinalTotal(raw1, m.handi1, playedGames);
+      const t2 = tnFinalTotal(raw2, m.handi2, playedGames);
       m.winner = t1 > t2 ? m.p1 : (t2 > t1 ? m.p2 : null);
     }
   }
@@ -23408,6 +23419,149 @@ function tnOpenNextMatchEditor() {
   toast('점수를 입력할 경기가 없습니다. 대진 복구 또는 편성을 먼저 해주세요.', 'error');
 }
 
+function tnGetTotoCandidates(t) {
+  const seeds = Array.isArray(t?.seeds) ? t.seeds.filter(Boolean) : [];
+  if(seeds.length) return [...new Set(seeds)].sort();
+  const yesList = Object.entries(t?.votes || {}).filter(([,v]) => v === 'yes').map(([n]) => n);
+  if(yesList.length) return yesList.sort();
+  const data = loadData();
+  return Object.keys(data.members || BASE_PLAYERS).sort();
+}
+
+function tnSetTotoPrediction(name, predictedWinner) {
+  if(!guardMemberVote(name)) return;
+  const current = tnGetCurrent();
+  if(!current) return;
+  if(tnIsTotoClosed(current)) { toast('우승자 맞추기가 마감됐습니다.', 'error'); return; }
+  tnUpdateCurrent(t => {
+    if(!t.totoPredictions) t.totoPredictions = {};
+    if(predictedWinner) t.totoPredictions[name] = predictedWinner;
+    else delete t.totoPredictions[name];
+  });
+  renderTournament();
+  toast(predictedWinner ? `${name} → ${predictedWinner} 우승 예측 완료!` : `${name} 우승자 예측 취소`);
+}
+
+function tnIsTotoClosed(t) {
+  if(!t) return true;
+  if(t.totoStatus === 'closed' || t.totoWinner) return true;
+  if(t.totoDeadline) {
+    const deadline = new Date(t.totoDeadline);
+    if(!Number.isNaN(deadline.getTime()) && new Date() >= deadline) return true;
+  }
+  return false;
+}
+
+function tnFormatDateTimeLocal(value) {
+  if(!value) return '';
+  const d = new Date(value);
+  if(Number.isNaN(d.getTime())) return '';
+  return d.toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
+}
+
+function tnSetTotoDeadline(value) {
+  if(!isAdmin) return;
+  tnUpdateCurrent(t => {
+    t.totoDeadline = value || '';
+    if(value && t.totoStatus === 'closed' && !t.totoWinner) t.totoStatus = 'open';
+  });
+  renderTournament();
+  toast(value ? `우승자 맞추기 마감시간 설정: ${tnFormatDateTimeLocal(value)}` : '우승자 맞추기 마감시간을 해제했습니다');
+}
+
+function tnSetTotoWinner(winner) {
+  if(!isAdmin) return;
+  tnUpdateCurrent(t => {
+    t.totoWinner = winner || '';
+    if(winner) t.totoStatus = 'closed';
+  });
+  renderTournament();
+  toast(winner ? `🏆 실제 우승자: ${winner}` : '우승자 확정을 해제했습니다');
+}
+
+function tnReopenToto() {
+  if(!isAdmin) return;
+  tnUpdateCurrent(t => {
+    t.totoStatus = 'open';
+    if(t.totoDeadline && new Date() >= new Date(t.totoDeadline)) t.totoDeadline = '';
+  });
+  renderTournament();
+  toast('우승자 맞추기를 다시 열었습니다');
+}
+
+function tnClearToto() {
+  if(!isAdmin) return;
+  if(!confirm('현재 번개대전의 우승자 맞추기 예측을 모두 초기화할까요?')) return;
+  tnUpdateCurrent(t => {
+    t.totoPredictions = {};
+    t.totoWinner = '';
+    t.totoStatus = 'open';
+  });
+  renderTournament();
+  toast('우승자 맞추기가 초기화됐습니다');
+}
+
+function renderTnTotoPanel(current) {
+  if(_tnActiveKind !== 'lightning') return '';
+  const data = loadData();
+  const allMembers = Object.keys(data.members || BASE_PLAYERS).sort();
+  const candidates = tnGetTotoCandidates(current);
+  const predictions = current.totoPredictions || {};
+  const actualWinner = current.totoWinner || current.champion || '';
+  const isClosed = tnIsTotoClosed(current);
+  const deadlineLabel = current.totoDeadline ? tnFormatDateTimeLocal(current.totoDeadline) : '';
+  const responded = Object.values(predictions).filter(Boolean).length;
+  const correct = actualWinner ? Object.entries(predictions).filter(([,v]) => v === actualWinner).map(([n]) => n) : [];
+
+  return `
+    <div style="margin-bottom:16px;background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.24);border-radius:12px;padding:14px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
+        <div>
+          <div style="font-size:13px;font-weight:800;color:var(--blue);">🏆 우승자 맞추기</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:3px;">후보: 대진 참가자 기준 · ${responded}/${allMembers.length}명 예측${deadlineLabel ? ` · ⏰ ${deadlineLabel} 마감` : ' · 마감시간 미설정'}${isClosed ? ' · 마감됨' : ''}${actualWinner ? ` · 실제 우승자 ${actualWinner}` : ''}</div>
+        </div>
+        ${isAdmin ? `
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+          <input type="datetime-local" value="${current.totoDeadline || ''}" onchange="tnSetTotoDeadline(this.value)"
+            title="우승자 맞추기 마감시간"
+            style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:7px 10px;border-radius:8px;font-size:12px;outline:none;font-family:inherit;">
+          ${current.totoDeadline ? `<button onclick="tnSetTotoDeadline('')" class="btn btn-secondary" style="font-size:11px;padding:6px 10px;">마감 해제</button>` : ''}
+          <select onchange="tnSetTotoWinner(this.value)"
+            style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:7px 10px;border-radius:8px;font-size:12px;outline:none;font-family:inherit;">
+            <option value="">실제 우승자 선택</option>
+            ${candidates.map(n => `<option value="${n}" ${actualWinner===n?'selected':''}>${n}</option>`).join('')}
+          </select>
+          ${isClosed ? `<button onclick="tnReopenToto()" class="btn btn-secondary" style="font-size:11px;padding:6px 10px;">다시 열기</button>` : ''}
+          <button onclick="tnClearToto()" class="btn btn-secondary" style="font-size:11px;padding:6px 10px;">초기화</button>
+        </div>` : ''}
+      </div>
+      ${actualWinner ? `
+      <div style="background:${correct.length?'rgba(34,197,94,0.1)':'rgba(239,68,68,0.08)'};border:1px solid ${correct.length?'rgba(34,197,94,0.28)':'rgba(239,68,68,0.2)'};border-radius:10px;padding:10px 12px;margin-bottom:12px;">
+        <div style="font-size:12px;font-weight:800;color:${correct.length?'var(--green)':'var(--red)'};">적중 ${correct.length}명</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:4px;">${correct.length ? correct.join(', ') : '아직 적중자가 없습니다'}</div>
+      </div>` : ''}
+      ${!current.totoDeadline ? `<div style="font-size:12px;color:var(--yellow);background:rgba(234,179,8,0.08);border:1px solid rgba(234,179,8,0.22);border-radius:10px;padding:9px 11px;margin-bottom:12px;">관리자가 마감시간을 설정하면 그 시간 이후 예측이 자동으로 잠깁니다.</div>` : ''}
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;">
+        ${allMembers.map(name => {
+          const pred = predictions[name] || '';
+          const canEdit = isAdmin || getLoggedInMember() === name;
+          const disabled = (!canEdit || isClosed) ? 'disabled' : '';
+          const muted = (!canEdit || isClosed) ? 'opacity:.45;cursor:not-allowed;' : '';
+          const hitStyle = actualWinner && pred === actualWinner ? 'border-color:var(--green);background:rgba(34,197,94,0.1);' : '';
+          return `
+          <div style="background:var(--bg3);border:1px solid var(--border);${hitStyle}border-radius:10px;padding:8px 10px;">
+            <div style="font-size:12px;font-weight:700;margin-bottom:6px;">${name}${actualWinner && pred === actualWinner ? ' 🎯' : ''}</div>
+            <select ${disabled} onchange="tnSetTotoPrediction('${name}',this.value)"
+              style="width:100%;background:var(--card);border:1px solid var(--border);color:var(--text);padding:6px 8px;border-radius:7px;font-size:12px;outline:none;font-family:inherit;${muted}">
+              <option value="">선택 안함</option>
+              ${candidates.map(n => `<option value="${n}" ${pred===n?'selected':''}>${n}</option>`).join('')}
+            </select>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+}
+
 // ───────────────────────────────────────────────────────────────
 // 🏆 세로형 대진표 렌더 (업로드 이미지 스타일)
 // ───────────────────────────────────────────────────────────────
@@ -23484,7 +23638,7 @@ function renderTnBracket() {
   // 1라운드 박스는 2개 리프를 커버, 2라운드 박스는 4개 리프, ...
   // 최상단 결승 박스는 전체 폭
 
-  let html = `${matchListHtml}<div style="overflow-x:auto;"><div style="display:flex;flex-direction:column;align-items:center;min-width:${totalLeafWidth + 40}px;padding:20px 10px;">`;
+  let html = `${renderTnTotoPanel(current)}${matchListHtml}<div style="overflow-x:auto;"><div style="display:flex;flex-direction:column;align-items:center;min-width:${totalLeafWidth + 40}px;padding:20px 10px;">`;
 
   // 라운드별 박스를 위에서 아래로 렌더 (결승이 맨 위)
   // 각 라운드의 매치는 brackets[round] = 배열
@@ -23554,8 +23708,9 @@ function renderTnBracket() {
       const done = m.scores1 !== null && m.scores2 !== null;
       const raw1 = done ? m.scores1.reduce((a,b)=>a+b,0) : 0;
       const raw2 = done ? m.scores2.reduce((a,b)=>a+b,0) : 0;
-      const t1 = done ? tnFinalTotal(raw1, m.handi1 || 0, current.gamesPerMatch) : '';
-      const t2 = done ? tnFinalTotal(raw2, m.handi2 || 0, current.gamesPerMatch) : '';
+      const playedGames = done ? tnPlayedGameCount(m.scores1, m.scores2, current.gamesPerMatch) : current.gamesPerMatch;
+      const t1 = done ? tnFinalTotal(raw1, m.handi1 || 0, playedGames) : '';
+      const t2 = done ? tnFinalTotal(raw2, m.handi2 || 0, playedGames) : '';
       const byeTag = m.bye ? '<span style="font-size:9px;color:var(--blue);margin-left:4px;">(부전승)</span>' : '';
 
       boxLabels += `<foreignObject x="${x+6}" y="${y+4}" width="${matchW-12}" height="${roundBoxH-8}"
@@ -23684,7 +23839,7 @@ function tnOpenMatchEditor(matchId) {
       </div>
     </div>
     <div style="font-size:11px;color:var(--text3);margin-bottom:10px;line-height:1.5;">
-      💡 '📷 점수입력' 탭에서 이미 저장한 점수가 있다면 "점수입력에서 불러오기"로 자동 채울 수 있습니다. 선택 방식이 노핸디면 실점수로, 에버리지 핸디 적용이면 실점수 + (개인 핸디 × 게임 수)로 승패를 계산합니다.
+      💡 '📷 점수입력' 탭에서 이미 저장한 점수가 있다면 "점수입력에서 불러오기"로 자동 채울 수 있습니다. 선택 방식이 노핸디면 실점수로, 에버리지 핸디 적용이면 실점수 + (개인 핸디 × 입력된 게임 수)로 승패를 계산합니다.
     </div>
     <div style="overflow-x:auto;">
     <table>
@@ -23717,15 +23872,20 @@ function tnRecalcTotal() {
   const m = current.matches.find(mm => mm.id === _tnCurrentMatchId);
   if(!m) return;
   let s1sum = 0, s2sum = 0;
+  const s1vals = [], s2vals = [];
   for(let i = 0; i < current.gamesPerMatch; i++) {
-    s1sum += parseInt(document.getElementById(`tn_p1_g${i}`).value) || 0;
-    s2sum += parseInt(document.getElementById(`tn_p2_g${i}`).value) || 0;
+    const v1 = parseInt(document.getElementById(`tn_p1_g${i}`).value) || 0;
+    const v2 = parseInt(document.getElementById(`tn_p2_g${i}`).value) || 0;
+    s1vals.push(v1); s2vals.push(v2);
+    s1sum += v1;
+    s2sum += v2;
   }
   const useHandi = tnIsHandicapEnabled(current);
   const h1 = useHandi ? tnGetHandicap(m.p1) : 0;
   const h2 = useHandi ? tnGetHandicap(m.p2) : 0;
-  const t1 = tnFinalTotal(s1sum, h1, current.gamesPerMatch);
-  const t2 = tnFinalTotal(s2sum, h2, current.gamesPerMatch);
+  const playedGames = tnPlayedGameCount(s1vals, s2vals, current.gamesPerMatch);
+  const t1 = tnFinalTotal(s1sum, h1, playedGames);
+  const t2 = tnFinalTotal(s2sum, h2, playedGames);
   const raw1El = document.getElementById('tn_p1_raw');
   const raw2El = document.getElementById('tn_p2_raw');
   if(raw1El) raw1El.textContent = s1sum;
@@ -23736,9 +23896,9 @@ function tnRecalcTotal() {
   if(s1sum === 0 && s2sum === 0) {
     preview.innerHTML = `<span style="color:var(--text3);">점수를 입력하면 선택 방식 기준 승자가 표시됩니다</span>`;
   } else if(t1 > t2) {
-    preview.innerHTML = `🏆 <b style="color:var(--green);">${m.p1}</b> 승 (최종 ${t1} vs ${t2}, 실점수 ${s1sum} vs ${s2sum})`;
+    preview.innerHTML = `🏆 <b style="color:var(--green);">${m.p1}</b> 승 (최종 ${t1} vs ${t2}, 실점수 ${s1sum} vs ${s2sum}, 핸디 ${playedGames}게임분)`;
   } else if(t2 > t1) {
-    preview.innerHTML = `🏆 <b style="color:var(--green);">${m.p2}</b> 승 (최종 ${t2} vs ${t1}, 실점수 ${s2sum} vs ${s1sum})`;
+    preview.innerHTML = `🏆 <b style="color:var(--green);">${m.p2}</b> 승 (최종 ${t2} vs ${t1}, 실점수 ${s2sum} vs ${s1sum}, 핸디 ${playedGames}게임분)`;
   } else {
     preview.innerHTML = `⚠️ <span style="color:var(--yellow);">선택 방식 기준 동점입니다. 클럽 규정에 따라 승부를 결정해주세요</span>`;
   }
@@ -23758,8 +23918,9 @@ function tnSaveMatch() {
   const h2 = useHandi && m ? tnGetHandicap(m.p2) : 0;
   const raw1 = s1.reduce((a,b)=>a+b,0);
   const raw2 = s2.reduce((a,b)=>a+b,0);
-  const t1 = tnFinalTotal(raw1, h1, current.gamesPerMatch);
-  const t2 = tnFinalTotal(raw2, h2, current.gamesPerMatch);
+  const playedGames = tnPlayedGameCount(s1, s2, current.gamesPerMatch);
+  const t1 = tnFinalTotal(raw1, h1, playedGames);
+  const t2 = tnFinalTotal(raw2, h2, playedGames);
   if(t1 === t2) {
     if(!confirm('선택 방식 기준 동점입니다. 저장하시겠습니까? (승자는 미결정 상태로 저장됩니다)')) return;
   }

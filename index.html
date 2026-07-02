@@ -22695,6 +22695,10 @@ function tnBackToVote() {
 // ── 메인 렌더 ─────────────────────────────────────────────
 function renderTournament() {
   tnApplyLabels();
+  if(tnAutoRepairBracketIfNeeded()) {
+    renderTournament();
+    return;
+  }
   const all = tnLoadAll();
   const sel = document.getElementById('tn_currentSelect');
   sel.innerHTML = '<option value="">-- 대회 선택 --</option>' +
@@ -23294,6 +23298,12 @@ function tnBuildMatchesFromSeeds(t) {
     prevCount = count;
   }
   t.matches = matches;
+  t.bracketSignature = tnBracketSignature(t);
+}
+
+function tnBracketSignature(t) {
+  const seeds = Array.isArray(t?.seeds) ? t.seeds.map(v => v || '').join('|') : '';
+  return [t?.bracketSize || 0, t?.matchType || 'seed', t?.handicap || 'none', seeds].join('::');
 }
 
 // ── 대진 확정 ─────────────────────────────────────────────
@@ -23335,11 +23345,64 @@ function tnPropagateWinners(t) {
   t.champion = (finalMatch && finalMatch.winner) ? finalMatch.winner : null;
 }
 
+function tnHasSavedMatchScores(t) {
+  return Array.isArray(t?.matches) && t.matches.some(m =>
+    (Array.isArray(m.scores1) && m.scores1.some(v => Number(v) > 0)) ||
+    (Array.isArray(m.scores2) && m.scores2.some(v => Number(v) > 0))
+  );
+}
+
+function tnNeedsBracketRebuild(t) {
+  if(!t || !Array.isArray(t.seeds)) return false;
+  const filled = t.seeds.filter(Boolean).length;
+  if(filled < 2) return false;
+  if(tnHasSavedMatchScores(t)) return false;
+  if(t.bracketSignature !== tnBracketSignature(t)) return true;
+  const size = Number(t.bracketSize) || t.seeds.length;
+  const expectedMatches = size > 1 ? size - 1 : 0;
+  if(!Array.isArray(t.matches) || t.matches.length !== expectedMatches) return true;
+  const round1 = t.matches.filter(m => m.round === 1);
+  if(round1.length !== size / 2) return true;
+  const anyParticipant = t.matches.some(m => m.p1 || m.p2);
+  if(!anyParticipant) return true;
+  return round1.some(m => {
+    const i = m.idx * 2;
+    return (m.p1 || null) !== (t.seeds[i] || null) || (m.p2 || null) !== (t.seeds[i+1] || null);
+  });
+}
+
+function tnAutoRepairBracketIfNeeded() {
+  const current = tnGetCurrent();
+  if(!current || (current.stage !== 'playing' && current.stage !== 'done')) return false;
+  const filled = Array.isArray(current.seeds) ? current.seeds.filter(Boolean).length : 0;
+  if(filled < 2 && !tnHasSavedMatchScores(current)) {
+    const yesList = Object.keys(current.votes || {}).filter(n => current.votes[n] === 'yes');
+    if(yesList.length >= 2) {
+      let newSize = 2;
+      while(newSize < yesList.length) newSize *= 2;
+      tnUpdateCurrent(t => {
+        t.bracketSize = newSize;
+        t.seeds = tnMakeSeedsByType(yesList, newSize, t.matchType || 'seed');
+        tnBuildMatchesFromSeeds(t);
+        tnPropagateWinners(t);
+      });
+      return true;
+    }
+  }
+  if(!tnNeedsBracketRebuild(current)) return false;
+  tnUpdateCurrent(t => {
+    t.bracketSize = t.bracketSize || t.seeds.length;
+    tnBuildMatchesFromSeeds(t);
+    tnPropagateWinners(t);
+  });
+  return true;
+}
+
 function tnEnsureMatches(t) {
   if(!t) return false;
-  if(Array.isArray(t.matches) && t.matches.length > 0) return true;
   const filled = Array.isArray(t.seeds) ? t.seeds.filter(Boolean).length : 0;
   if(filled < 2) return false;
+  if(Array.isArray(t.matches) && t.matches.length > 0 && !tnNeedsBracketRebuild(t)) return true;
   t.bracketSize = t.bracketSize || t.seeds.length;
   tnBuildMatchesFromSeeds(t);
   tnPropagateWinners(t);

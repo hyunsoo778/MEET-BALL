@@ -405,28 +405,172 @@
   .fine-bar-unpaid { background: var(--red); }
 
   @media (max-width: 768px) {
-    header { padding: 0; height: auto; min-height: 56px; flex-wrap: wrap; gap: 0; }
+    html, body { width: 100%; max-width: 100%; overflow-x: hidden; }
+    body { -webkit-text-size-adjust: 100%; }
+    body::before { opacity: 0.75; }
+    header { padding: 0; height: auto; min-height: 56px; flex-wrap: wrap; gap: 0; align-items: flex-start; }
+    .logo { width: 100%; padding: 10px 12px 4px; font-size: 24px; }
     nav { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%;
-          gap: 0; padding: 4px 8px 8px; scrollbar-width: none; }
+          gap: 4px; padding: 4px 8px 8px; scrollbar-width: none; align-items: center; }
     nav::-webkit-scrollbar { display: none; }
-    .nav-btn { font-size: 11px; padding: 6px 10px; white-space: nowrap; flex-shrink: 0; }
-    main { padding: 12px 10px; }
-    .page-title { font-size: 28px; }
+    .nav-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: auto;
+      height: 38px;
+      min-height: 38px;
+      font-size: 11px;
+      line-height: 1;
+      padding: 0 10px;
+      white-space: nowrap;
+      flex: 0 0 auto;
+    }
+    nav .btn, nav .admin-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: auto;
+      height: 38px;
+      min-height: 38px;
+      padding: 0 10px;
+      font-size: 11px;
+      line-height: 1;
+      white-space: nowrap;
+      flex: 0 0 auto;
+    }
+    main { width: 100%; padding: 14px 10px 84px; overflow-x: hidden; }
+    .section { max-width: 100%; overflow-x: hidden; }
+    .page-title { font-size: 32px; line-height: 1.05; word-break: keep-all; }
+    .page-sub { margin-bottom: 18px; line-height: 1.5; }
+    .upload-area { padding: 36px 18px; border-radius: 12px; }
+    .upload-title { font-size: 17px; }
+    .upload-sub { line-height: 1.5; }
+    .btn { width: 100%; min-height: 44px; justify-content: center; padding: 10px 12px; }
+    .btn[style*="margin-left:auto"] { margin-left: 0 !important; }
+    .toolbar { align-items: stretch; gap: 8px; }
+    .toolbar-right { width: 100%; margin-left: 0; flex-wrap: wrap; }
+    .toolbar-right .btn { flex: 1 1 140px; }
+    .tabs { width: 100%; overflow-x: auto; flex-wrap: nowrap; }
+    .tab { flex: 1 0 auto; min-height: 40px; white-space: nowrap; }
+    .date-row { align-items: stretch; gap: 10px; }
+    .input-group { width: 100%; min-width: 0; }
+    .input-group input, .input-group select, .modal-input {
+      width: 100% !important;
+      min-height: 44px;
+      font-size: 16px;
+    }
+    .editor-header, .rank-header, .fine-round-header, .round-card-header {
+      flex-wrap: wrap;
+      gap: 10px;
+      padding: 14px;
+    }
+    .score-editor, .rank-table-wrap, .round-card, .fine-round-card, .stat-card, .fine-summary-card {
+      border-radius: 12px;
+    }
     .rank-row { flex-wrap: wrap; gap: 10px; padding: 12px 14px; }
+    .rank-name { min-width: calc(100% - 54px); }
     .rank-stats { gap: 10px; flex-wrap: wrap; }
+    .rank-stat { flex: 1 1 72px; }
     .rank-stat-val { font-size: 14px; }
     .round-entry { flex-wrap: wrap; gap: 6px; padding: 10px 14px; }
     .round-entry-scores { font-size: 11px; }
     .stats-grid { grid-template-columns: 1fr; }
     .rounds-grid { grid-template-columns: 1fr; }
-    .date-row { flex-wrap: wrap; }
     .member-row { flex-wrap: wrap; gap: 8px; }
     .logo span { display: none; }
-    table { font-size: 11px; }
+    table { font-size: 11px; min-width: 620px; }
+    .score-editor, .rank-table-wrap, #tn_matchEditor, #tn_bracketPanel, #tn_resultPanel {
+      overflow-x: auto !important;
+      -webkit-overflow-scrolling: touch;
+    }
     th, td { padding: 6px 8px; }
+    td input { width: 54px; min-height: 34px; font-size: 13px; }
     .modal { width: calc(100vw - 40px); padding: 24px; }
     .fine-row { flex-wrap: wrap; gap: 8px; padding: 12px 14px; }
     .fine-summary-grid { grid-template-columns: repeat(2,1fr); }
+    .toast {
+      left: 10px;
+      right: 10px;
+      bottom: 12px;
+      justify-content: center;
+      text-align: center;
+    }
+
+    #tournament .page-title { font-size: 34px; }
+    #tournament .page-sub { font-size: 12px; }
+    #tournament select,
+    #tournament input,
+    #tournament textarea {
+      max-width: 100%;
+    }
+    #tn_summaryBar,
+    #tn_votePanel,
+    #tn_setupPanel,
+    #tn_bracketPanel,
+    #tn_matchPanel,
+    #tn_resultPanel,
+    #tn_emptyHint,
+    #tn_stepIndicator {
+      border-radius: 12px !important;
+      padding: 12px !important;
+      margin-bottom: 12px !important;
+    }
+    #tn_summaryBar > div,
+    #tn_stepContent {
+      gap: 8px !important;
+      align-items: stretch !important;
+    }
+    #tn_summaryBar > div > div {
+      flex: 1 1 120px;
+      min-width: 0;
+    }
+    #tn_stepContent {
+      display: flex !important;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: 2px;
+    }
+    #tn_stepContent > div {
+      flex-shrink: 0;
+    }
+    #tn_stepContent > div[style*="height:1px"] {
+      display: none !important;
+    }
+    #tn_bracketPanel > div:first-child,
+    #tn_matchPanel > div:first-child,
+    #tournament div[style*="justify-content:space-between"] {
+      flex-wrap: wrap !important;
+      gap: 8px !important;
+      align-items: stretch !important;
+    }
+    #tn_bracketPanel > div:first-child > div,
+    #tn_matchPanel > div:first-child > div {
+      width: 100%;
+    }
+    #tn_bracketPanel > div:first-child .btn,
+    #tn_matchPanel > div:first-child .btn {
+      flex: 1 1 140px;
+      width: auto;
+    }
+    #tn_bracket {
+      min-width: 720px;
+      padding-bottom: 4px;
+    }
+    #tn_bracket svg {
+      max-width: none;
+    }
+    #tn_matchEditor table {
+      min-width: 760px;
+    }
+    #tn_matchEditor .btn {
+      width: auto;
+      min-width: 140px;
+    }
+    #tn_currentSelect {
+      width: 100%;
+      margin-left: 0 !important;
+    }
   }
 
   .modal-overlay {
@@ -22793,7 +22937,7 @@ function renderTournament() {
     // playing 또는 done
     bracketPanel.style.display = 'block';
     renderTnBracket();
-    if(current.champion) {
+    if(current.champion && !tnUseThreeGameFlow(current)) {
       resultPanel.style.display = 'block';
       renderTnFinalResult();
     }
@@ -23460,6 +23604,27 @@ function tnRepairCurrentBracket() {
 function tnOpenNextMatchEditor() {
   const current = tnGetCurrent();
   if(!current) { toast('선택된 대회가 없습니다', 'error'); return; }
+  if(tnUseThreeGameFlow(current)) {
+    const p1 = tnThreeGameParticipants(current);
+    const p2 = tnThreeGameAdvancers(current, 1, p1, 4);
+    const p3 = tnThreeGameAdvancers(current, 2, p2, 2);
+    const scores1 = tnThreeGameScores(current, 1);
+    const scores2 = tnThreeGameScores(current, 2);
+    const scores3 = tnThreeGameScores(current, 3);
+    let targetRound = 1;
+    if(p1.length && p1.every(n => Number(scores1[n]) > 0) && p2.length) targetRound = 2;
+    if(targetRound === 2 && p2.every(n => Number(scores2[n]) > 0) && p3.length) targetRound = 3;
+    if(targetRound === 3 && p3.every(n => Number(scores3[n]) > 0)) {
+      toast('모든 경기 점수가 입력되었습니다', 'success');
+      return;
+    }
+    const card = document.getElementById(`tn_threeGame_round_${targetRound}`);
+    if(card) card.scrollIntoView({behavior:'smooth', block:'center'});
+    const input = card ? card.querySelector('input') : null;
+    if(input) input.focus();
+    toast(`${targetRound}경기 점수를 입력해주세요`, 'success');
+    return;
+  }
   if(!Array.isArray(current.matches) || current.matches.length === 0) {
     tnRepairCurrentBracket();
   }
@@ -23480,6 +23645,23 @@ function tnOpenNextMatchEditor() {
     return;
   }
   toast('점수를 입력할 경기가 없습니다. 대진 복구 또는 편성을 먼저 해주세요.', 'error');
+}
+
+function tnMatchOrderNumber(match, tournament) {
+  if(!match || !Array.isArray(tournament?.matches)) return 0;
+  const ordered = tournament.matches
+    .sort((a,b) => a.round - b.round || a.idx - b.idx);
+  const index = ordered.findIndex(m => m.id === match.id);
+  return index >= 0 ? index + 1 : 0;
+}
+
+function tnMatchDisplayLabel(match, tournament) {
+  const order = tnMatchOrderNumber(match, tournament);
+  const numRounds = Math.log2(Number(tournament?.bracketSize) || 0);
+  const base = order ? `${order}경기` : `${match?.round || 0}R-${(match?.idx || 0) + 1}`;
+  if(match && match.round === numRounds) return `${base} 결승`;
+  if(match && numRounds > 2 && match.round === numRounds - 1) return `${base} 준결승`;
+  return base;
 }
 
 function tnGetTotoCandidates(t) {
@@ -23564,6 +23746,125 @@ function tnClearToto() {
   toast('우승자 맞추기가 초기화됐습니다');
 }
 
+function tnUseThreeGameFlow(t) {
+  return !!t && (_tnActiveKind === 'ranking' || _tnActiveKind === 'lightning');
+}
+
+function tnThreeGameParticipants(t) {
+  const seeds = Array.isArray(t?.seeds) ? t.seeds.filter(Boolean) : [];
+  if(seeds.length) return [...new Set(seeds)];
+  const yesList = Object.entries(t?.votes || {}).filter(([,v]) => v === 'yes').map(([n]) => n);
+  return [...new Set(yesList)];
+}
+
+function tnThreeGameScores(t, round) {
+  return (t?.threeGameScores && t.threeGameScores[round]) ? t.threeGameScores[round] : {};
+}
+
+function tnThreeGameRank(t, round, players) {
+  const scores = tnThreeGameScores(t, round);
+  return players.map(name => {
+    const raw = Number(scores[name]) || 0;
+    const handi = tnIsHandicapEnabled(t) ? tnGetHandicap(name) : 0;
+    return { name, raw, handi, final: raw > 0 ? raw + handi : 0 };
+  }).sort((a,b) => b.final - a.final || b.raw - a.raw || a.name.localeCompare(b.name, 'ko'));
+}
+
+function tnThreeGameAdvancers(t, round, players, count) {
+  return tnThreeGameRank(t, round, players).filter(p => p.raw > 0).slice(0, count).map(p => p.name);
+}
+
+function tnSetThreeGameScore(round, name, value) {
+  const score = Math.max(0, Math.min(300, parseInt(value, 10) || 0));
+  tnUpdateCurrent(t => {
+    if(!t.threeGameScores) t.threeGameScores = { 1:{}, 2:{}, 3:{} };
+    if(!t.threeGameScores[round]) t.threeGameScores[round] = {};
+    if(score > 0) t.threeGameScores[round][name] = score;
+    else delete t.threeGameScores[round][name];
+
+    const p1 = tnThreeGameParticipants(t);
+    const p2 = tnThreeGameAdvancers(t, 1, p1, 4);
+    const p3 = tnThreeGameAdvancers(t, 2, p2, 2);
+    const champion = tnThreeGameAdvancers(t, 3, p3, 1)[0] || null;
+    t.champion = champion;
+    t.stage = champion ? 'done' : 'playing';
+  });
+  renderTournament();
+}
+
+function renderTnThreeGameFlow(current, bracketDiv) {
+  const players1 = tnThreeGameParticipants(current);
+  const players2 = tnThreeGameAdvancers(current, 1, players1, 4);
+  const players3 = tnThreeGameAdvancers(current, 2, players2, 2);
+  const champion = tnThreeGameAdvancers(current, 3, players3, 1)[0] || current.champion || null;
+  const useHandi = tnIsHandicapEnabled(current);
+
+  const renderRound = (round, title, sub, players, advanceCount, lockedText) => {
+    const ranking = tnThreeGameRank(current, round, players);
+    const scores = tnThreeGameScores(current, round);
+    if(!players.length) {
+      return `
+        <div id="tn_threeGame_round_${round}" style="background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:16px;">
+          <div style="font-weight:900;color:var(--text);margin-bottom:4px;">${title}</div>
+          <div style="font-size:12px;color:var(--text3);line-height:1.6;">${lockedText}</div>
+        </div>`;
+    }
+    return `
+      <div id="tn_threeGame_round_${round}" style="background:var(--bg3);border:1px solid var(--border);border-radius:12px;overflow:hidden;">
+        <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+          <div>
+            <div style="font-weight:900;color:var(--text);">${title}</div>
+            <div style="font-size:12px;color:var(--text3);margin-top:3px;">${sub}</div>
+          </div>
+          <div style="font-size:12px;color:var(--accent);font-weight:800;">${useHandi ? '핸디 적용' : '노핸디'}</div>
+        </div>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th style="text-align:left;">선수</th>
+                <th>실점수</th>
+                <th>핸디</th>
+                <th>최종</th>
+                <th>상태</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${ranking.map((p, i) => {
+                const pass = p.raw > 0 && i < advanceCount;
+                const winner = round === 3 && p.name === champion;
+                return `
+                  <tr style="${pass ? 'background:rgba(34,197,94,0.06);' : ''}">
+                    <td class="td-name">${i + 1}. ${p.name}${winner ? ' 🏆' : ''}</td>
+                    <td><input type="number" min="0" max="300" value="${scores[p.name] || ''}" onchange="tnSetThreeGameScore(${round}, '${p.name}', this.value)" style="width:72px;"></td>
+                    <td style="font-family:'JetBrains Mono',monospace;color:${p.handi > 0 ? 'var(--accent)' : 'var(--text3)'};font-weight:700;">+${p.handi}</td>
+                    <td class="td-total">${p.final || '-'}</td>
+                    <td style="font-size:12px;font-weight:800;color:${winner ? 'var(--yellow)' : pass ? 'var(--green)' : 'var(--text3)'};">${winner ? '우승' : pass ? (round === 3 ? '1위' : '진출') : '-'}</td>
+                  </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+  };
+
+  bracketDiv.innerHTML = `
+    ${renderTnTotoPanel(current)}
+    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:14px;">
+      <div style="font-size:13px;font-weight:900;color:var(--text);margin-bottom:5px;">🏆 3경기 승자진출 방식</div>
+      <div style="font-size:12px;color:var(--text3);line-height:1.6;">
+        1경기에서 상위 4명 진출 → 2경기에서 상위 2명 진출 → 3경기 1위가 최종 우승입니다.
+      </div>
+    </div>
+    <div style="display:grid;gap:14px;">
+      ${renderRound(1, '1경기', `참가자 ${players1.length}명 중 상위 4명 진출`, players1, Math.min(4, players1.length), '참가자가 없습니다. 참가 투표 또는 편성에서 선수를 먼저 넣어주세요.')}
+      ${renderRound(2, '2경기', `${players2.length}명 중 상위 2명 결승 진출`, players2, Math.min(2, players2.length), '1경기 점수를 입력하면 상위 4명이 자동으로 올라옵니다.')}
+      ${renderRound(3, '3경기 결승', `${players3.length}명 중 1위 우승`, players3, 1, '2경기 점수를 입력하면 상위 2명이 자동으로 올라옵니다.')}
+    </div>
+    ${champion ? `<div style="margin-top:14px;background:linear-gradient(135deg,#f59e0b,#f97316);border-radius:12px;padding:18px;text-align:center;color:#fff;font-weight:900;font-size:20px;">🏆 최종 우승 ${champion}</div>` : ''}
+  `;
+}
+
 function renderTnTotoPanel(current) {
   if(_tnActiveKind !== 'lightning') return '';
   const data = loadData();
@@ -23632,6 +23933,20 @@ function renderTnBracket() {
   const current = tnGetCurrent();
   if(!current) return;
   const bracketDiv = document.getElementById('tn_bracket');
+  if(tnUseThreeGameFlow(current)) {
+    renderTnThreeGameFlow(current, bracketDiv);
+    return;
+  }
+  if(tnNeedsBracketRebuild(current)) {
+    tnUpdateCurrent(t => {
+      t.bracketSize = t.bracketSize || t.seeds.length;
+      tnBuildMatchesFromSeeds(t);
+      t.stage = 'playing';
+      tnPropagateWinners(t);
+    });
+    renderTournament();
+    return;
+  }
   if(!Array.isArray(current.matches) || current.matches.length === 0) {
     const fixed = tnEnsureMatches(current);
     if(fixed) {
@@ -23663,13 +23978,13 @@ function renderTnBracket() {
     <div style="margin-bottom:16px;background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:14px;">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
         <div style="font-size:13px;font-weight:800;">🎯 점수 입력할 경기</div>
-        <div style="font-size:11px;color:var(--text3);">대진표 박스를 누르거나 아래 버튼을 누르면 점수를 넣을 수 있습니다</div>
+        <div style="font-size:11px;color:var(--text3);">1경기 승자와 2경기 승자가 올라가고, 3경기 결승 승자가 우승입니다</div>
       </div>
       ${playableMatches.length ? `
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
           ${playableMatches.map(m => `
             <button class="btn btn-primary" onclick="tnOpenMatchEditor('${m.id}')" style="font-size:12px;padding:7px 12px;">
-              ${m.round}R-${m.idx+1} · ${m.p1} vs ${m.p2}
+              ${tnMatchDisplayLabel(m, current)} · ${m.p1} vs ${m.p2}
             </button>`).join('')}
         </div>` : `
         <div style="font-size:12px;color:var(--text3);line-height:1.6;">
@@ -23681,7 +23996,7 @@ function renderTnBracket() {
           <div style="display:flex;gap:6px;flex-wrap:wrap;">
             ${finishedPlayableMatches.map(m => `
               <button class="btn btn-secondary" onclick="tnOpenMatchEditor('${m.id}')" style="font-size:11px;padding:5px 9px;">
-                ${m.round}R-${m.idx+1} · ${m.winner} 승
+                ${tnMatchDisplayLabel(m, current)} · ${m.winner} 승
               </button>`).join('')}
           </div>
         </div>` : ''}
@@ -23692,7 +24007,7 @@ function renderTnBracket() {
   const CELL_H_LEAF = 160;     // 맨 아래 선수 셀 높이 (세로 이름)
   const GAP_X = 6;             // 리프 사이 간격
   const MATCH_GAP = 14;        // 매치쌍 사이 간격
-  const ROUND_H = 50;          // 라운드별 박스 높이
+  const ROUND_H = 62;          // 라운드별 박스 높이
 
   const leafWidth = CELL_W;
   const totalLeafWidth = size * leafWidth + (size - 1) * GAP_X + (size/2 - 1) * MATCH_GAP;
@@ -23775,10 +24090,12 @@ function renderTnBracket() {
       const t1 = done ? tnFinalTotal(raw1, m.handi1 || 0, playedGames) : '';
       const t2 = done ? tnFinalTotal(raw2, m.handi2 || 0, playedGames) : '';
       const byeTag = m.bye ? '<span style="font-size:9px;color:var(--blue);margin-left:4px;">(부전승)</span>' : '';
+      const matchLabel = tnMatchDisplayLabel(m, current);
 
       boxLabels += `<foreignObject x="${x+6}" y="${y+4}" width="${matchW-12}" height="${roundBoxH-8}"
         style="pointer-events:none;">
-        <div xmlns="http://www.w3.org/1999/xhtml" style="font-family:'Noto Sans KR',sans-serif;font-size:11px;color:var(--text);line-height:1.3;height:100%;display:flex;flex-direction:column;justify-content:space-between;">
+        <div xmlns="http://www.w3.org/1999/xhtml" style="font-family:'Noto Sans KR',sans-serif;font-size:11px;color:var(--text);line-height:1.25;height:100%;display:flex;flex-direction:column;justify-content:space-between;">
+          <div style="font-size:9px;color:var(--accent);font-weight:900;text-align:center;line-height:1;">${matchLabel}</div>
           <div style="display:flex;justify-content:space-between;align-items:center;${w1?'font-weight:700;color:var(--green);':''}">
             <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70%;">${p1}${w1?' 🏆':''}${!m.p1?' ':''}</span>
             <span style="font-family:'JetBrains Mono',monospace;font-weight:700;">${t1}</span>
@@ -23879,6 +24196,7 @@ function tnOpenMatchEditor(matchId) {
 
   const s1 = m.scores1 || new Array(current.gamesPerMatch).fill(0);
   const s2 = m.scores2 || new Array(current.gamesPerMatch).fill(0);
+  const matchLabel = tnMatchDisplayLabel(m, current);
 
   const gameCols = Array.from({length: current.gamesPerMatch}, (_,i) => `<th>G${i+1}</th>`).join('');
   const makeRow = (name, avg, scores, handi, who) => {
@@ -23895,7 +24213,7 @@ function tnOpenMatchEditor(matchId) {
 
   editor.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
-      <div style="font-size:13px;color:var(--text3);">매치 <span style="color:var(--accent);font-weight:700;">${m.id}</span> · ${current.gamesPerMatch}게임 · 핸디 적용</div>
+      <div style="font-size:13px;color:var(--text3);"><span style="color:var(--accent);font-weight:900;">${matchLabel}</span> · ${m.p1} vs ${m.p2} · ${current.gamesPerMatch}게임 · ${tnIsHandicapEnabled(current) ? '핸디 적용' : '노핸디'}</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <button class="btn btn-secondary" onclick="tnImportFromOCR()">📷 점수입력에서 불러오기</button>
         <button class="btn btn-green" onclick="tnSaveMatch()">💾 결과 저장</button>

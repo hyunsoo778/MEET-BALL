@@ -24170,14 +24170,25 @@ function tnNormalizeAll(data) {
 }
 
 function tnMergeAll(primary, secondary) {
-  const a = tnNormalizeAll(primary);
-  const b = tnNormalizeAll(secondary);
+  const remote = tnNormalizeAll(primary);
+  const local = tnNormalizeAll(secondary);
   const map = new Map();
-  [...b.list, ...a.list].forEach(t => {
-    if(t?.id) map.set(t.id, t);
+
+  // 같은 대회가 Firebase와 휴대폰에 모두 있을 때 updatedAt이 최신인 쪽을 사용한다.
+  // 기존 코드는 Firebase 값을 무조건 우선해 방금 저장한 휴대폰 투표가 초기화될 수 있었다.
+  [...remote.list, ...local.list].forEach(t => {
+    if(!t?.id) return;
+    const prev = map.get(t.id);
+    if(!prev) { map.set(t.id, t); return; }
+    const prevTime = Number(prev.updatedAt || prev.createdAt || 0);
+    const nextTime = Number(t.updatedAt || t.createdAt || 0);
+    if(nextTime >= prevTime) map.set(t.id, t);
   });
-  const list = Array.from(map.values()).sort((x,y) => (y.createdAt || 0) - (x.createdAt || 0));
-  let currentId = a.currentId || b.currentId || null;
+
+  const list = Array.from(map.values()).sort((x,y) =>
+    Number(y.updatedAt || y.createdAt || 0) - Number(x.updatedAt || x.createdAt || 0)
+  );
+  let currentId = local.currentId || remote.currentId || null;
   if(currentId && !list.some(t => t.id === currentId)) currentId = null;
   if(!currentId && list.length) currentId = list[0].id;
   return { list, currentId };
@@ -24215,6 +24226,8 @@ function tnUpdateCurrent(modifier, kind = _tnActiveKind) {
   const t = all.list.find(t => t.id === all.currentId);
   if(!t) return;
   modifier(t);
+  t.updatedAt = Date.now();
+  all.updatedAt = t.updatedAt;
   tnSaveAll(all, kind);
 }
 
@@ -25325,12 +25338,12 @@ function tnFormatDateTimeLocal(value) {
   return d.toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
 }
 
-function tnSetTotoDeadline(value) {
+function tnSetTotoDeadline(value, kind = _tnActiveKind) {
   if(!isAdmin) return;
   tnUpdateCurrent(t => {
     t.totoDeadline = value || '';
     if(value && t.totoStatus === 'closed' && !t.totoWinner) t.totoStatus = 'open';
-  });
+  }, kind);
   renderTournament();
   toast(value ? `우승자 맞추기 마감시간 설정: ${tnFormatDateTimeLocal(value)}` : '우승자 맞추기 마감시간을 해제했습니다');
 }
@@ -25345,32 +25358,32 @@ function tnSetTotoWinner(winner, kind = _tnActiveKind) {
   toast(winner ? `🏆 실제 우승자: ${winner}` : '우승자 확정을 해제했습니다');
 }
 
-function tnReopenToto() {
+function tnReopenToto(kind = _tnActiveKind) {
   if(!isAdmin) return;
   tnUpdateCurrent(t => {
     t.totoStatus = 'open';
     if(t.totoDeadline && new Date() >= new Date(t.totoDeadline)) t.totoDeadline = '';
-  });
+  }, kind);
   renderTournament();
   toast('우승자 맞추기를 다시 열었습니다');
 }
 
-function tnClearToto() {
+function tnClearToto(kind = _tnActiveKind) {
   if(!isAdmin) return;
   if(!confirm('현재 대회의 우승자 맞추기 예측을 모두 초기화할까요?')) return;
   tnUpdateCurrent(t => {
     t.totoPredictions = {};
     t.totoWinner = '';
     t.totoStatus = 'open';
-  });
+  }, kind);
   renderTournament();
   toast('우승자 맞추기가 초기화됐습니다');
 }
 
-function tnSetTotoEntryFee(value) {
+function tnSetTotoEntryFee(value, kind = _tnActiveKind) {
   if(!isAdmin) return;
   const n = Math.max(0, parseInt(value, 10) || 0);
-  tnUpdateCurrent(t => { t.totoEntryFee = n; });
+  tnUpdateCurrent(t => { t.totoEntryFee = n; }, kind);
   renderTournament();
 }
 

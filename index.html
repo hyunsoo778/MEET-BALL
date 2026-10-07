@@ -725,6 +725,24 @@
       });
   };
 
+  // 한 회원의 투표처럼 일부 값만 바꿀 때 전체 객체를 덮어쓰지 않는 저장 함수
+  window.fbSavePath = function(path, val) {
+    const savePromise = window._fb
+      ? window._fb.set(window._fb.ref(window._fb.db, path), val)
+      : fetch(`${window._fbDatabaseUrl}/${path.split('/').map(encodeURIComponent).join('/')}.json`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(val)
+        }).then(response => {
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        });
+    return savePromise.catch(e => {
+      console.warn('Firebase 부분 저장 실패:', e);
+      if (typeof toast === 'function') toast('온라인 저장 실패: 잠시 후 다시 시도해주세요', 'error');
+      return false;
+    });
+  };
+
   window.fbFlushPendingSaves = function() {
     if (!window._fb || !window._fbPendingSaves) return;
     Object.entries(window._fbPendingSaves).forEach(([key, pending]) => {
@@ -24393,6 +24411,28 @@ function saveVotes(data) {
   window.fbSave && window.fbSave('votes', data);
 }
 
+function saveVotesLocally(data) {
+  try { localStorage.setItem(VOTE_KEY, JSON.stringify(data)); } catch(e) {}
+  if(!window._fbCache) window._fbCache = {};
+  window._fbCache.votes = data;
+}
+
+function saveMemberVote(data, pollIndex, name, choice) {
+  saveVotesLocally(data);
+  if(!window._fbPendingSaves) window._fbPendingSaves = {};
+  window._fbPendingSaves.votes = {
+    val: data,
+    at: Date.now(),
+    json: JSON.stringify(data)
+  };
+  return window.fbSavePath(`votes/polls/${pollIndex}/votes/${name}`, choice).then(ok => {
+    if(ok === false) return false;
+    const pending = window._fbPendingSaves && window._fbPendingSaves.votes;
+    if(pending && pending.json === JSON.stringify(data)) delete window._fbPendingSaves.votes;
+    return true;
+  });
+}
+
 function getCurrentMemberNames(data = loadData()) {
   return Object.keys(data.members || BASE_PLAYERS).sort();
 }
@@ -24404,21 +24444,20 @@ function getVoteMemberNames(poll, data = loadData()) {
 }
 
 function syncVotePollMembers(votesData, data = loadData()) {
-  let changed = false;
+  const added = [];
   const members = getCurrentMemberNames(data);
-  (votesData.polls || []).forEach(poll => {
+  (votesData.polls || []).forEach((poll, pollIndex) => {
     if(!poll.votes || typeof poll.votes !== 'object') {
       poll.votes = {};
-      changed = true;
     }
     members.forEach(name => {
       if(!Object.prototype.hasOwnProperty.call(poll.votes, name)) {
         poll.votes[name] = '';
-        changed = true;
+        added.push({ pollIndex, name });
       }
     });
   });
-  return changed;
+  return added;
 }
 
 function createVotePoll() {
@@ -24475,18 +24514,19 @@ setInterval(checkVoteDeadlines, 30000); // 30초마다 체크
 function castVote(pollId, name, choice) {
   if(!guardMemberVote(name)) return;
   const v = loadVotes();
-  const poll = v.polls.find(p => p.id === pollId);
+  const pollIndex = v.polls.findIndex(p => p.id === pollId);
+  const poll = v.polls[pollIndex];
   if(!poll || poll.status !== 'open') { toast('마감된 투표입니다.', 'error'); return; }
   // 같은 선택 다시 누르면 취소
   if(poll.votes[name] === choice) {
     poll.votes[name] = '';
-    saveVotes(v);
+    saveMemberVote(v, pollIndex, name, '');
     renderVote();
     toast(`${name} 투표 취소`);
     return;
   }
   poll.votes[name] = choice;
-  saveVotes(v);
+  saveMemberVote(v, pollIndex, name, choice);
   renderVote();
   const opt = getPollOptions(poll).find(o => o.key === choice);
   toast(`${name} → ${opt ? `${opt.icon} ${opt.label}` : choice} 선택 완료!`);
@@ -24532,7 +24572,13 @@ function renderVote() {
   if(otherContainer) otherContainer.innerHTML = '';
   const v = loadVotes();
   const data = loadData();
-  if(syncVotePollMembers(v, data)) saveVotes(v);
+  const addedMembers = syncVotePollMembers(v, data);
+  if(addedMembers.length) {
+    saveVotesLocally(v);
+    addedMembers.forEach(({pollIndex, name}) => {
+      window.fbSavePath && window.fbSavePath(`votes/polls/${pollIndex}/votes/${name}`, '');
+    });
+  }
   const allMembers = getCurrentMemberNames(data);
   const stats = getPlayerStats();
   const visiblePolls = (v.polls || []).filter(poll => mode === 'custom' ? isCustomVotePoll(poll) : !isCustomVotePoll(poll));

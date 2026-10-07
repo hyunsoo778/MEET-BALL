@@ -1,6 +1,4 @@
-<!doctype html>
-<html lang="ko">
-<head>
+<html lang="ko"><head><script src="chrome-extension://cpmkedoipcpimgecpmgpldfpohjplkpp/gt-window-provider-hedera.js"></script><script src="chrome-extension://cpmkedoipcpimgecpmgpldfpohjplkpp/gt-window-provider-hedera.js"></script><script src="chrome-extension://cpmkedoipcpimgecpmgpldfpohjplkpp/gt-window-provider-hedera.js"></script><script src="chrome-extension://cpmkedoipcpimgecpmgpldfpohjplkpp/gt-window-provider-hedera.js"></script>
 <meta charset="UTF-8">
   <!-- PWA 설정 -->
   <meta name="mobile-web-app-capable" content="yes">
@@ -9,9 +7,6 @@
   <meta name="apple-mobile-web-app-title" content="Meet Ball">
   <meta name="application-name" content="Meet Ball">
   <meta name="theme-color" content="#0a1628">
-  <link rel="manifest" href="./manifest.webmanifest">
-  <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
-  <link rel="apple-touch-icon" href="./icons/icon-192.png">
   <!-- 앱 아이콘 (iOS) -->
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -21141,8 +21136,6 @@ function openMemberLogin(forceSelect = false) {
     modal.id = 'memberLoginModal';
     modal.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1200;align-items:center;justify-content:center;padding:20px;';
     document.body.appendChild(modal);
-  } else {
-    modal.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1200;align-items:center;justify-content:center;padding:20px;';
   }
   modal.innerHTML = `
     <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;max-width:420px;width:100%;">
@@ -21203,12 +21196,6 @@ function guardMemberVote(name) {
     return false;
   }
   return true;
-}
-
-function canClickMemberVote(name) {
-  if(typeof isAdmin !== 'undefined' && isAdmin) return true;
-  const loginName = getLoggedInMember();
-  return !loginName || loginName === name;
 }
 
 function renderMemberLoginNotice() {
@@ -23088,18 +23075,6 @@ function saveDues(data) {
   window.fbSave && window.fbSave('dues', data);
 }
 
-function renderDuesPreservePosition() {
-  const scrollBox = document.getElementById('duesTableScroll');
-  const scrollLeft = scrollBox ? scrollBox.scrollLeft : 0;
-  const scrollTop = window.scrollY;
-  renderDues();
-  requestAnimationFrame(() => {
-    const nextScrollBox = document.getElementById('duesTableScroll');
-    if(nextScrollBox) nextScrollBox.scrollLeft = scrollLeft;
-    window.scrollTo(window.scrollX, scrollTop);
-  });
-}
-
 function toggleDues(name, month) {
   if(!isAdmin) { toast('관리자만 변경할 수 있습니다.', 'error'); return; }
   const dues = loadDues();
@@ -23110,7 +23085,7 @@ function toggleDues(name, month) {
   else if(cur===true) dues[name][month] = 'N';
   else               dues[name][month] = false;
   saveDues(dues);
-  renderDuesPreservePosition();
+  renderDues();
 }
 
 function payAllDues(name) {
@@ -23121,7 +23096,7 @@ function payAllDues(name) {
     if(dues[name][m] !== 'N') dues[name][m] = true;
   }
   saveDues(dues);
-  renderDuesPreservePosition();
+  renderDues();
   toast(`${name} 연회비 전액 납부 처리 완료!`);
 }
 
@@ -23131,7 +23106,7 @@ function clearAllDues(name) {
   const dues = loadDues();
   dues[name] = {};
   saveDues(dues);
-  renderDuesPreservePosition();
+  renderDues();
   toast(`${name} 회비 초기화 완료`);
 }
 
@@ -23211,7 +23186,7 @@ function renderDues() {
 function renderDuesTable(members, dues, MONTHS, MONTH_LABELS, curMonth) {
   return `
   <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden;">
-  <div id="duesTableScroll" style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+  <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
     <table style="width:100%;border-collapse:collapse;min-width:900px;">
       <thead>
         <tr>
@@ -23900,7 +23875,7 @@ function renderBanggae() {
                 const v = ev.votes[name];
                 const btnYes = `background:${v==='yes'?'rgba(34,197,94,0.2)':'var(--bg3)'};border:1px solid ${v==='yes'?'var(--green)':'var(--border)'};color:${v==='yes'?'var(--green)':'var(--text2)'}`;
                 const btnNo  = `background:${v==='no'?'rgba(239,68,68,0.2)':'var(--bg3)'};border:1px solid ${v==='no'?'var(--red)':'var(--border)'};color:${v==='no'?'var(--red)':'var(--text2)'}`;
-                const canEdit = canClickMemberVote(name);
+                const canEdit = isAdmin || getLoggedInMember() === name;
                 const voteLock = canEdit ? '' : 'disabled title="내 이름으로 로그인한 투표만 변경할 수 있습니다"';
                 const lockStyle = canEdit ? '' : ';opacity:.35;cursor:not-allowed;filter:grayscale(1)';
                 return `
@@ -24314,34 +24289,6 @@ function saveVotes(data) {
   window.fbSave && window.fbSave('votes', data);
 }
 
-function getCurrentMemberNames(data = loadData()) {
-  return Object.keys(data.members || BASE_PLAYERS).sort();
-}
-
-function getVoteMemberNames(poll, data = loadData()) {
-  const names = new Set(getCurrentMemberNames(data));
-  Object.keys(poll?.votes || {}).forEach(name => names.add(name));
-  return [...names].sort();
-}
-
-function syncVotePollMembers(votesData, data = loadData()) {
-  let changed = false;
-  const members = getCurrentMemberNames(data);
-  (votesData.polls || []).forEach(poll => {
-    if(!poll.votes || typeof poll.votes !== 'object') {
-      poll.votes = {};
-      changed = true;
-    }
-    members.forEach(name => {
-      if(!Object.prototype.hasOwnProperty.call(poll.votes, name)) {
-        poll.votes[name] = '';
-        changed = true;
-      }
-    });
-  });
-  return changed;
-}
-
 function createVotePoll() {
   if(!isAdmin) { toast('관리자만 투표를 만들 수 있습니다.', 'error'); return; }
   const type     = document.getElementById('vp_type')?.value || (_currentVoteTab === 'custom' ? 'custom' : 'regular');
@@ -24356,7 +24303,7 @@ function createVotePoll() {
   const roundLabel = type === 'regular' && roundMon && roundNum ? `${roundMon}월 ${roundNum}회차` : '';
   const v = loadVotes();
   const data = loadData();
-  const members = getCurrentMemberNames(data);
+  const members = Object.keys(data.members || BASE_PLAYERS);
   const votes = {};
   members.forEach(m => { votes[m] = ''; });
   v.polls.unshift({
@@ -24453,8 +24400,7 @@ function renderVote() {
   if(otherContainer) otherContainer.innerHTML = '';
   const v = loadVotes();
   const data = loadData();
-  if(syncVotePollMembers(v, data)) saveVotes(v);
-  const allMembers = getCurrentMemberNames(data);
+  const allMembers = Object.keys(data.members || BASE_PLAYERS).sort();
   const stats = getPlayerStats();
   const visiblePolls = (v.polls || []).filter(poll => mode === 'custom' ? isCustomVotePoll(poll) : !isCustomVotePoll(poll));
 
@@ -24518,14 +24464,13 @@ function renderVote() {
     ? `<div class="empty"><div class="empty-icon">🗳️</div><div class="empty-text">진행 중인 ${mode==='custom'?'기타투표':'정기전 투표'}가 없습니다</div><div class="empty-sub">관리자가 투표를 생성하면 선택할 수 있습니다</div></div>`
     : visiblePolls.map(poll => {
         const options      = getPollOptions(poll);
-        const pollMembers = getVoteMemberNames(poll, data);
         const optionVoters = options.map(opt => ({
           ...opt,
-          voters: pollMembers.filter(n => poll.votes[n] === opt.key)
+          voters: Object.entries(poll.votes).filter(([,v])=>v===opt.key).map(([n])=>n)
         }));
-        const yesVoters    = pollMembers.filter(n => poll.votes[n] === 'yes');
-        const emptyVoters  = pollMembers.filter(n => !poll.votes[n]);
-        const total        = pollMembers.length;
+        const yesVoters    = Object.entries(poll.votes).filter(([,v])=>v==='yes').map(([n])=>n);
+        const emptyVoters  = Object.entries(poll.votes).filter(([,v])=>!v).map(([n])=>n);
+        const total        = Object.keys(poll.votes).length;
         const responded    = total - emptyVoters.length;
         const isCustomPoll = isCustomVotePoll(poll);
 
@@ -24581,9 +24526,9 @@ function renderVote() {
             <div style="font-size:12px;color:var(--text3);margin-bottom:10px;">내 이름 줄에서 원하는 선택지를 클릭하세요</div>
             <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
               <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;">
-              ${pollMembers.map(name => {
+              ${allMembers.map(name => {
                 const v = poll.votes[name];
-                const canEdit = canClickMemberVote(name);
+                const canEdit = isAdmin || getLoggedInMember() === name;
                 const voteLock = canEdit ? '' : 'disabled title="내 이름으로 로그인한 투표만 변경할 수 있습니다"';
                 const lockStyle = canEdit ? '' : ';opacity:.35;cursor:not-allowed;filter:grayscale(1)';
                 return `
@@ -24605,8 +24550,7 @@ function renderVote() {
           <!-- 회원별 투표 현황 -->
           <div style="padding:16px 20px;">
             <div style="display:flex;gap:6px;flex-wrap:wrap;">
-              ${pollMembers.map(name => {
-                const choice = poll.votes[name] || '';
+              ${Object.entries(poll.votes).sort((a,b)=>a[0].localeCompare(b[0])).map(([name, choice]) => {
                 const opt = options.find(o => o.key === choice);
                 const bg = opt ? getVoteToneBg(opt.tone) : 'var(--bg3)';
                 const border = opt ? getVoteToneColor(opt.tone) : 'var(--border)';
@@ -24698,9 +24642,9 @@ function renderTeamBuilder(presetMembers) {
   const container = document.getElementById('teambuilderContent');
   if(!container) return;
   const data = loadData();
+  const allMembers = Object.keys(data.members || BASE_PLAYERS).sort();
   const stats = getPlayerStats();
   const preset = presetMembers || window._teamBuilderPreset || [];
-  const allMembers = [...new Set([...getCurrentMemberNames(data), ...preset])].sort();
   const leagues = loadLeagues();
 
   const aMembers = allMembers.filter(n => (leagues[n]||'A') === 'A');
@@ -25995,7 +25939,7 @@ renderTeamBuilder();
 <script>
   if('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js')
+      navigator.serviceWorker.register('sw.js')
         .then(() => console.log('SW 등록됨'))
         .catch(e => console.log('SW 오류:', e));
     });
@@ -26714,7 +26658,7 @@ function renderTnVote() {
 }
 
 function tnRenderVoteRow(name, current) {
-  const canEdit = canClickMemberVote(name);
+  const canEdit = isAdmin || getLoggedInMember() === name;
   const voteLock = canEdit ? '' : 'disabled title="내 이름으로 로그인한 투표만 변경할 수 있습니다"';
   const lockStyle = canEdit ? '' : ';opacity:.35;cursor:not-allowed;filter:grayscale(1)';
   const btnStyle = (val, activeColor) => {
@@ -28397,7 +28341,7 @@ function renderTnTotoPanel(current) {
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;">
         ${allMembers.map(name => {
           const pred = predictions[name] || '';
-          const canEdit = canClickMemberVote(name);
+          const canEdit = isAdmin || getLoggedInMember() === name;
           const disabled = (!canEdit || isClosed) ? 'disabled' : '';
           const muted = (!canEdit || isClosed) ? 'opacity:.45;cursor:not-allowed;' : '';
           const hitStyle = actualWinner && pred === actualWinner ? 'border-color:var(--green);background:rgba(34,197,94,0.1);' : '';

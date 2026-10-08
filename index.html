@@ -24858,7 +24858,7 @@ function renderTeamBuilder(presetMembers) {
 
   function memberCard(name) {
     const s = stats[name];
-    const avg = s?.avg ? Math.round(s.avg) : (data.members?.[name] || 0);
+    const avg = s?.avg ? Math.round(s.avg) : (data.members?.[name] || BASE_PLAYERS[name] || 0);
     const handi = Math.max(0, 200 - avg);
     const checked = preset.includes(name) ? 'checked' : '';
     const league = leagues[name] || 'A';
@@ -25179,7 +25179,7 @@ function getMemberAvg(name) {
   const data = loadData();
   const stats = getPlayerStats();
   const s = stats[name];
-  return s?.avg ? parseFloat(s.avg.toFixed(2)) : (data.members?.[name] || 0);
+  return s?.avg ? parseFloat(s.avg.toFixed(2)) : (data.members?.[name] || BASE_PLAYERS[name] || 0);
 }
 
 // 선택한 참가자가 결과에서 중복되거나 빠지지 않도록 최종 배정 상태를 보정한다.

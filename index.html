@@ -23688,6 +23688,7 @@ function deleteMember(name) {
     round.scores = round.scores.filter(sc => sc.name !== name);
   }
   saveData(data);
+  removeMemberFromOpenVotes(name);
   renderMemberList();
   refreshAll();
   toast(`${name} 회원 삭제 완료`);
@@ -24433,13 +24434,33 @@ function saveMemberVote(data, pollIndex, name, choice) {
   });
 }
 
+function removeMemberFromOpenVotes(name) {
+  const data = loadVotes();
+  const removed = [];
+  (data.polls || []).forEach((poll, pollIndex) => {
+    if(poll.status !== 'open' || !poll.votes || !Object.prototype.hasOwnProperty.call(poll.votes, name)) return;
+    delete poll.votes[name];
+    removed.push({ pollIndex, name });
+  });
+  if(!removed.length) return;
+  saveVotesLocally(data);
+  removed.forEach(({pollIndex, name: memberName}) => {
+    window.fbSavePath && window.fbSavePath(`votes/polls/${pollIndex}/votes/${memberName}`, null);
+  });
+}
+
 function getCurrentMemberNames(data = loadData()) {
   return Object.keys(data.members || BASE_PLAYERS).sort();
 }
 
 function getVoteMemberNames(poll, data = loadData()) {
   const names = new Set(getCurrentMemberNames(data));
-  Object.keys(poll?.votes || {}).forEach(name => names.add(name));
+  // 진행 중 투표는 현재 회원만 표시하고, 마감된 투표는 당시 기록을 보존한다.
+  if(poll?.status !== 'open') {
+    Object.entries(poll?.votes || {}).forEach(([name, choice]) => {
+      if(choice) names.add(name);
+    });
+  }
   return [...names].sort();
 }
 
@@ -24447,6 +24468,8 @@ function syncVotePollMembers(votesData, data = loadData()) {
   const added = [];
   const members = getCurrentMemberNames(data);
   (votesData.polls || []).forEach((poll, pollIndex) => {
+    // 신규 회원은 진행 중인 투표에만 추가한다. 과거 마감 투표는 당시 명단을 유지한다.
+    if(poll.status !== 'open') return;
     if(!poll.votes || typeof poll.votes !== 'object') {
       poll.votes = {};
     }

@@ -25182,6 +25182,30 @@ function getMemberAvg(name) {
   return s?.avg ? parseFloat(s.avg.toFixed(2)) : (data.members?.[name] || 0);
 }
 
+// 선택한 참가자가 결과에서 중복되거나 빠지지 않도록 최종 배정 상태를 보정한다.
+function ensureAllTeamPlayersAssigned(teams, players) {
+  const playerMap = new Map(players.map(player => [player.name, player]));
+  const seen = new Set();
+  teams.forEach(team => {
+    team.members = team.members.filter(player => {
+      if(!playerMap.has(player.name) || seen.has(player.name)) return false;
+      seen.add(player.name);
+      return true;
+    });
+  });
+  players.filter(player => !seen.has(player.name)).forEach(player => {
+    const target = teams.reduce((best, team) => {
+      if(team.members.length !== best.members.length) return team.members.length < best.members.length ? team : best;
+      return team.totalAvg < best.totalAvg ? team : best;
+    }, teams[0]);
+    target.members.push(player);
+    seen.add(player.name);
+  });
+  teams.forEach(team => {
+    team.totalAvg = team.members.reduce((sum, player) => sum + player.avg, 0);
+  });
+}
+
 // ── 통합/분리 모드 전환 ──────────────────────────────────
 window._tbMode = 'unified';
 window._groupMode = { A: 'team', B: 'team' };
@@ -25469,6 +25493,8 @@ function buildTeams() {
     balancedAssign(teamPlayers, teams);
   }
 
+  ensureAllTeamPlayersAssigned(teams, teamPlayers);
+
     renderTeamResult(teams, players, noHandi, '통합', soloGroups, teamPlayers);
 }
 
@@ -25578,6 +25604,8 @@ function renderTeamResult(teams, players, noHandi, modeLabel, soloGroups, teamPl
   const colors = ['#3b82f6','#f97316','#a855f7','#ec4899','#14b8a6','#eab308'];
   const result = document.getElementById('tb_result');
   const overallAvg = players.length > 0 ? players.reduce((a,p)=>a+p.avg,0) / players.length : 0;
+  const assignedNames = new Set(teams.flatMap(team => team.members.map(player => player.name)));
+  const missingNames = teamPlayers.filter(player => !assignedNames.has(player.name)).map(player => player.name);
 
   // 개인전 그룹 섹션
   const soloSection = soloGroups.length > 0 ? `
@@ -25620,13 +25648,14 @@ function renderTeamResult(teams, players, noHandi, modeLabel, soloGroups, teamPl
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
       <div style="font-weight:700;font-size:16px;">⚡ 팀 편성 결과 <span style="font-size:12px;color:var(--text3);font-weight:400;">🔗 통합</span>${soloGroups.length>0?` <span style="font-size:11px;color:#eab308;"> + 개인전 포함</span>`:''}</div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <span style="font-size:12px;padding:4px 9px;border-radius:8px;background:${missingNames.length?'rgba(239,68,68,.12)':'rgba(34,197,94,.12)'};color:${missingNames.length?'#ef4444':'#22c55e'};font-weight:700;">배정 ${assignedNames.size}/${teamPlayers.length}${missingNames.length?` · 누락: ${missingNames.join(', ')}`:' · 전원 포함'}</span>
         <span style="font-size:13px;color:var(--text3);">팀전 평균에버: <b style="color:var(--accent);">${teamPlayers.length>0?Math.round(teamPlayers.reduce((a,p)=>a+p.avg,0)/teamPlayers.length):0}</b></span>
         <button onclick="buildTeams()" class="btn btn-secondary" style="font-size:12px;padding:6px 14px;">🔀 다시 편성</button>
         <button onclick="copyTeamResult()" class="btn btn-secondary" style="font-size:12px;padding:6px 14px;">📋 복사</button>
         <button onclick="goToLaneAssign()" class="btn btn-primary" style="font-size:12px;padding:6px 14px;">🎳 레인 배정</button>
       </div>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;">
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px;">
       ${teams.map((team, i) => {
         const teamAvg = team.members.length > 0 ? Math.round(team.totalAvg / team.members.length) : 0;
         const tpAvg = teamPlayers.length>0 ? teamPlayers.reduce((a,p)=>a+p.avg,0)/teamPlayers.length : 0;
@@ -25659,7 +25688,7 @@ function renderTeamResult(teams, players, noHandi, modeLabel, soloGroups, teamPl
             <div style="display:flex;align-items:center;gap:6px;padding:7px 12px;border-bottom:1px solid rgba(255,255,255,0.05);background:${isSel?'rgba(234,179,8,0.08)':'transparent'};">
               <span style="width:18px;height:18px;border-radius:50%;background:${color}22;color:${color};font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;">${rank+1}</span>
               <span style="font-size:9px;padding:1px 5px;border-radius:5px;background:${lColor}18;color:${lColor};">${p.league}</span>
-              <span style="font-weight:700;font-size:13px;flex:1;">${p.name}</span>
+              <span style="font-weight:700;font-size:13px;flex:1;white-space:nowrap;">${p.name}</span>
               <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text2);">에버 ${Math.round(p.avg)}${!noHandi ? ` +${p.handi}` : ''}</span>
               <button onclick="selectForSwap(${tIdx},${rank},'${p.name}')"
                 style="background:${isSel?'rgba(234,179,8,0.3)':'rgba(100,116,139,0.12)'};border:1px solid ${isSel?'#eab308':'rgba(100,116,139,0.25)'};color:${isSel?'#eab308':'var(--text3)'};border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;flex-shrink:0;">${isSel?'✓':'교체'}</button>

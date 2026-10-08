@@ -20659,11 +20659,36 @@ function loadData() {
 }
 
 function saveData(data) {
+  saveDataLocally(data);
+  window.fbSave && window.fbSave('data', data);
+}
+
+function saveDataLocally(data) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     window._bowlingData = data;
   } catch(e) { console.error('저장 실패', e); }
-  window.fbSave && window.fbSave('data', data);
+  if(!window._fbCache) window._fbCache = {};
+  window._fbCache.data = data;
+}
+
+function saveRoundsRecord(data) {
+  saveDataLocally(data);
+  return window.fbSavePath && window.fbSavePath('data/rounds', data.rounds || []);
+}
+
+// 회원 추가/수정은 data 전체를 덮어쓰지 않고 해당 회원 경로만 저장한다.
+// 여러 사람이 동시에 접속해도 오래된 화면이 신규 회원을 다시 지우는 것을 막는다.
+function saveMemberRecord(data, name, avg) {
+  if(!data.members) data.members = {};
+  data.members[name] = avg;
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    window._bowlingData = data;
+  } catch(e) { console.error('회원 저장 실패', e); }
+  if(!window._fbCache) window._fbCache = {};
+  window._fbCache.data = data;
+  return window.fbSavePath && window.fbSavePath(`data/members/${name}`, avg);
 }
 
 // 벌금 납부 정보 (roundId_playerName → true/false)
@@ -20883,7 +20908,8 @@ function initDataIfEmpty() {
   // 완전히 새로운 경우(localStorage 없음)에만 BASE_PLAYERS로 초기화
   if(!raw) {
     const data = { rounds: JSON.parse(JSON.stringify(INIT_ROUNDS)), members: JSON.parse(JSON.stringify(BASE_PLAYERS)) };
-    saveData(data);
+    // 로컬 초기 화면만 준비하고 서버 데이터는 Firebase 로드 후 사용한다.
+    saveDataLocally(data);
     window._bowlingData = data;
     return;
   }
@@ -20895,7 +20921,7 @@ function initDataIfEmpty() {
   if(!data.members) {
     data.members = JSON.parse(JSON.stringify(BASE_PLAYERS));
   }
-  saveData(data);
+  saveDataLocally(data);
   window._bowlingData = data;
 }
 
@@ -21829,7 +21855,7 @@ function saveScores() {
     else roundEntry.scores.push(s);
   });
 
-  saveData(data);
+  saveRoundsRecord(data);
   clearEditor();
   renderRanking(currentRankTab || 'avg');
   renderRounds();
@@ -23610,8 +23636,7 @@ function addMember() {
   const data = loadData();
   if(!data.members) data.members = {};
   if(data.members.hasOwnProperty(name)) { toast(`${name}은 이미 등록된 회원입니다.`, 'error'); return; }
-  data.members[name] = avg;
-  saveData(data);
+  saveMemberRecord(data, name, avg);
   document.getElementById('newMemberName').value = '';
   document.getElementById('newMemberAvg').value = '';
   refreshAll();
@@ -23627,8 +23652,7 @@ function addMember2() {
   const data = loadData();
   if(!data.members) data.members = {};
   if(data.members.hasOwnProperty(name)) { toast(`${name}은 이미 등록된 회원입니다.`, 'error'); return; }
-  data.members[name] = avg;
-  saveData(data);
+  saveMemberRecord(data, name, avg);
   const gender2 = document.getElementById('newMemberGender2')?.value || 'M';
   const genders2 = loadGenders(); genders2[name] = gender2; saveGenders(genders2);
   document.getElementById('newMemberName2').value = '';
@@ -23645,8 +23669,7 @@ function saveMemberAvg(name) {
   const avg = parseInt(input.value) || 0;
   const data = loadData();
   if(!data.members) data.members = {};
-  data.members[name] = avg;
-  saveData(data);
+  saveMemberRecord(data, name, avg);
   renderMemberList();
   renderPlayers();
   if(currentRankTab) renderRanking(currentRankTab);
@@ -23665,7 +23688,9 @@ function deleteMember(name) {
   for(const round of data.rounds) {
     round.scores = round.scores.filter(sc => sc.name !== name);
   }
-  saveData(data);
+  saveDataLocally(data);
+  window.fbSavePath && window.fbSavePath(`data/members/${name}`, null);
+  window.fbSavePath && window.fbSavePath('data/rounds', data.rounds || []);
   removeMemberFromOpenVotes(name);
   renderMemberList();
   refreshAll();
@@ -23679,7 +23704,7 @@ function deletePlayerFromRound(roundId, name) {
   const round = data.rounds.find(r => r.id === roundId);
   if(!round) return;
   round.scores = round.scores.filter(sc => sc.name !== name);
-  saveData(data);
+  saveRoundsRecord(data);
   refreshAll();
   toast(`${name} 점수 삭제 완료`);
 }
@@ -24822,8 +24847,10 @@ function renderTeamBuilder(presetMembers) {
   if(!container) return;
   const data = loadData();
   const stats = getPlayerStats();
-  const preset = presetMembers || window._teamBuilderPreset || [];
-  const allMembers = [...new Set([...getCurrentMemberNames(data), ...preset])].sort();
+  const allMembers = getCurrentMemberNames(data);
+  // 투표에서 넘어온 과거/삭제 회원은 제외하고 현재 회원만 참가 후보로 사용한다.
+  const requestedPreset = presetMembers || window._teamBuilderPreset || [];
+  const preset = requestedPreset.filter(name => allMembers.includes(name));
   const leagues = loadLeagues();
 
   const aMembers = allMembers.filter(n => (leagues[n]||'A') === 'A');
@@ -25109,44 +25136,43 @@ function updateTbLabelColor(label, name) {
 }
 
 function checkAllMembers(val) {
-  const data = loadData();
-  const members = Object.keys(data.members || BASE_PLAYERS);
-  members.forEach(name => {
-    const chk = document.getElementById(`tb_${name}`);
+  getTeamBuilderCheckboxes().forEach(chk => {
+    const name = chk.value;
     const lbl = document.getElementById(`tb_label_${name}`);
-    if(chk) { chk.checked = val; }
+    chk.checked = val;
     if(lbl) updateTbLabelColor(lbl, name);
   });
+  saveTbState();
   updateBuilderStats();
 }
 
 function checkLeague(league, val) {
-  const data = loadData();
-  const members = Object.keys(data.members || BASE_PLAYERS);
+  const checkboxes = getTeamBuilderCheckboxes();
   // 먼저 전체 해제
-  members.forEach(name => {
-    const chk = document.getElementById(`tb_${name}`);
+  checkboxes.forEach(chk => {
+    const name = chk.value;
     const lbl = document.getElementById(`tb_label_${name}`);
-    if(chk) { chk.checked = false; }
+    chk.checked = false;
     if(lbl) updateTbLabelColor(lbl, name);
   });
   // 해당 리그만 선택
-  members.filter(n => getMemberLeague(n) === league).forEach(name => {
-    const chk = document.getElementById(`tb_${name}`);
+  checkboxes.filter(chk => getMemberLeague(chk.value) === league).forEach(chk => {
+    const name = chk.value;
     const lbl = document.getElementById(`tb_label_${name}`);
-    if(chk) { chk.checked = val; }
+    chk.checked = val;
     if(lbl) updateTbLabelColor(lbl, name);
   });
+  saveTbState();
   updateBuilderStats();
 }
 
+function getTeamBuilderCheckboxes() {
+  return Array.from(document.querySelectorAll('#teambuilderContent input[type="checkbox"][id^="tb_"]'));
+}
+
 function getCheckedMembers() {
-  const data = loadData();
-  const members = Object.keys(data.members || BASE_PLAYERS);
-  return members.filter(name => {
-    const chk = document.getElementById(`tb_${name}`);
-    return chk && chk.checked;
-  });
+  // 화면에 표시된 체크박스를 기준으로 읽어 신규 회원도 즉시 팀 편성에 포함한다.
+  return getTeamBuilderCheckboxes().filter(chk => chk.checked).map(chk => chk.value);
 }
 
 function getMemberAvg(name) {
@@ -26053,7 +26079,7 @@ function deleteRound(roundId) {
   if(!confirm('이 회차 기록을 삭제할까요?')) return;
   const data = loadData();
   data.rounds = data.rounds.filter(r => r.id !== roundId);
-  saveData(data);
+  saveRoundsRecord(data);
   renderRounds(); renderRanking(currentRankTab||'avg'); renderPlayers();
   toast('회차 삭제 완료');
 }

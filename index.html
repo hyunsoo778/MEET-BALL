@@ -26025,24 +26025,30 @@ function renderRanking(tab) {
       if(b.recentAvg === null) return -1;
       return b.recentAvg - a.recentAvg;
     });
-    container.innerHTML = `<div style="padding:12px 16px;background:rgba(59,130,246,.08);border-bottom:1px solid var(--border);font-size:12px;color:var(--text2);">
-      최근 3개월 기준: <b>${fmt(cutoff)} ~ ${fmt(today)}</b> · 기간 내 실제 게임만 계산 · 누적 에버는 기존 전체 정기전 기준
-    </div>` + sorted.map((s,i) => {
+    const rows = sorted.map((s,i) => {
       const hasRecent = s.recentAvg !== null;
       const diff = hasRecent ? Math.round(s.change) : null;
       const diffColor = diff > 0 ? '#22c55e' : diff < 0 ? '#ef4444' : 'var(--text3)';
       const diffText = !hasRecent ? '-' : diff > 0 ? `▲ ${diff}` : diff < 0 ? `▼ ${Math.abs(diff)}` : '± 0';
-      const rc = hasRecent && i===0?'rank-1':hasRecent && i===1?'rank-2':hasRecent && i===2?'rank-3':'rank-other';
-      return `<div class="rank-row">
-        <div class="rank-num ${rc}">${hasRecent?i+1:'-'}</div>
-        <div style="flex:1;min-width:130px;"><div class="rank-name">${s.name}</div>
-          <div style="font-size:11px;color:var(--text3);margin-top:3px;">최근 ${s.recentAttend}회 · ${s.recentGames}게임</div></div>
-        <div class="rank-stats" style="flex-wrap:wrap;">
-          <div class="rank-stat"><div class="rank-stat-val" style="color:var(--text2);">${Math.round(s.avg)}</div><div class="rank-stat-label">최신 누적</div></div>
-          <div class="rank-stat"><div class="rank-stat-val" style="color:var(--accent);">${hasRecent?Math.round(s.recentAvg):'-'}</div><div class="rank-stat-label">최근 3개월</div></div>
-          <div class="rank-stat"><div class="rank-stat-val" style="color:${diffColor};">${diffText}</div><div class="rank-stat-label">증감</div></div>
-        </div></div>`;
+      return `<tr>
+        <td style="text-align:center;font-weight:800;">${hasRecent?i+1:'-'}</td>
+        <td class="td-name" style="white-space:nowrap;">${s.name}</td>
+        <td style="text-align:center;font-weight:700;color:var(--text2);">${Math.round(s.avg)}</td>
+        <td style="text-align:center;font-weight:800;color:var(--accent);">${hasRecent?Math.round(s.recentAvg):'-'}</td>
+        <td style="text-align:center;font-weight:800;color:${diffColor};">${diffText}</td>
+        <td style="text-align:center;">${s.recentAttend}회</td>
+        <td style="text-align:center;">${s.recentGames}게임</td>
+      </tr>`;
     }).join('');
+    container.innerHTML = `<div style="padding:12px 16px;background:rgba(59,130,246,.08);border-bottom:1px solid var(--border);font-size:12px;color:var(--text2);">
+      최근 3개월 기준: <b>${fmt(cutoff)} ~ ${fmt(today)}</b> · 기간 내 실제 게임만 계산 · 누적 에버는 기존 전체 정기전 기준
+    </div>
+    <div style="overflow-x:auto;">
+      <table style="min-width:720px;">
+        <thead><tr><th>순위</th><th>이름</th><th>최신 누적</th><th>최근 3개월</th><th>증감</th><th>최근 출전</th><th>게임 수</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
 
   } else if(tab === 'handi_history') {
     const data = loadData();

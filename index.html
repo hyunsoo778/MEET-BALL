@@ -1965,6 +1965,7 @@
     <button class="tab active" onclick="switchRankTab('handi',this)">핸디 현황</button>
     <button class="tab" onclick="switchRankTab('handi_history',this)">핸디 변동이력</button>
     <button class="tab" onclick="switchRankTab('recent_compare',this)">최근 3개월 비교</button>
+    <button class="tab" onclick="switchRankTab('recent_compare_6',this)">최근 6개월 비교</button>
   </div>
 
   <div class="rank-table-wrap">
@@ -25954,7 +25955,8 @@ function renderRanking(tab) {
   if(!container) return;
   const titles = { avg:'🏅 노핸디 에버리지 순위', handi_applied:'🎯 핸디 적용 순위',
                    total:'🏆 총점 순위', handi:'📊 핸디 현황', handi_history:'📈 핸디 변동이력',
-                   recent_compare:'🕒 최신 누적 에버 vs 최근 3개월' };
+                   recent_compare:'🕒 최신 누적 에버 vs 최근 3개월',
+                   recent_compare_6:'📅 최신 누적 에버 vs 최근 6개월' };
   if(titleEl) titleEl.textContent = titles[tab] || titles.avg;
   let sorted = Object.values(stats);
 
@@ -26012,8 +26014,9 @@ function renderRanking(tab) {
         </div></div>`;
     }).join('');
 
-  } else if(tab === 'recent_compare') {
-    const { recent, cutoff, today } = getRecentAverageStats(3);
+  } else if(tab === 'recent_compare' || tab === 'recent_compare_6') {
+    const compareMonths = tab === 'recent_compare_6' ? 6 : 3;
+    const { recent, cutoff, today } = getRecentAverageStats(compareMonths);
     const fmt = date => `${date.getFullYear()}.${String(date.getMonth()+1).padStart(2,'0')}.${String(date.getDate()).padStart(2,'0')}`;
     sorted = sorted.map(s => {
       const r = recent[s.name];
@@ -26041,11 +26044,11 @@ function renderRanking(tab) {
       </tr>`;
     }).join('');
     container.innerHTML = `<div style="padding:12px 16px;background:rgba(59,130,246,.08);border-bottom:1px solid var(--border);font-size:12px;color:var(--text2);">
-      최근 3개월 기준: <b>${fmt(cutoff)} ~ ${fmt(today)}</b> · 기간 내 실제 게임만 계산 · 누적 에버는 기존 전체 정기전 기준
+      최근 ${compareMonths}개월 기준: <b>${fmt(cutoff)} ~ ${fmt(today)}</b> · 기간 내 실제 게임만 계산 · 누적 에버는 기존 전체 정기전 기준
     </div>
     <div style="overflow-x:auto;">
       <table style="min-width:720px;">
-        <thead><tr><th>순위</th><th>이름</th><th>최신 누적</th><th>최근 3개월</th><th>증감</th><th>최근 출전</th><th>게임 수</th></tr></thead>
+        <thead><tr><th>순위</th><th>이름</th><th>최신 누적</th><th>최근 ${compareMonths}개월</th><th>증감</th><th>최근 출전</th><th>게임 수</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>`;

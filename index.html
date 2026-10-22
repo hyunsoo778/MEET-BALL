@@ -1964,6 +1964,7 @@
     <button class="tab" onclick="switchRankTab('total',this)">총점 순위</button>
     <button class="tab active" onclick="switchRankTab('handi',this)">핸디 현황</button>
     <button class="tab" onclick="switchRankTab('handi_history',this)">핸디 변동이력</button>
+    <button class="tab" onclick="switchRankTab('recent_compare',this)">최근 3개월 비교</button>
   </div>
 
   <div class="rank-table-wrap">
@@ -21081,6 +21082,31 @@ function getPlayerStats() {
   return stats;
 }
 
+function getRecentAverageStats(months = 3) {
+  const data = loadData();
+  const today = new Date();
+  const cutoff = new Date(today.getFullYear(), today.getMonth() - months, today.getDate());
+  cutoff.setHours(0, 0, 0, 0);
+  const recent = {};
+  (data.rounds || []).forEach(round => {
+    if(!round.date) return;
+    const roundDate = new Date(`${round.date}T00:00:00`);
+    if(Number.isNaN(roundDate.getTime()) || roundDate < cutoff) return;
+    (round.scores || []).forEach(score => {
+      const games = getScoreG(score).filter(value => Number(value) > 0);
+      if(!games.length) return;
+      if(!recent[score.name]) recent[score.name] = { totalPins:0, totalGames:0, attend:0 };
+      recent[score.name].totalPins += games.reduce((sum, value) => sum + Number(value), 0);
+      recent[score.name].totalGames += games.length;
+      recent[score.name].attend += 1;
+    });
+  });
+  Object.values(recent).forEach(item => {
+    item.avg = item.totalGames ? item.totalPins / item.totalGames : 0;
+  });
+  return { recent, cutoff, today };
+}
+
 // 회차별 직전 누적에버 기반 벌금/핸디 계산
 // BASE_PLAYERS(이전에버)를 항상 가상 1게임으로 포함해서 계산
 // 예) 2회차 직전에버(정현수): (190 + 184+192+245) / 4 = 202.75
@@ -25927,7 +25953,8 @@ function renderRanking(tab) {
   const titleEl   = document.getElementById('rankTitle');
   if(!container) return;
   const titles = { avg:'🏅 노핸디 에버리지 순위', handi_applied:'🎯 핸디 적용 순위',
-                   total:'🏆 총점 순위', handi:'📊 핸디 현황', handi_history:'📈 핸디 변동이력' };
+                   total:'🏆 총점 순위', handi:'📊 핸디 현황', handi_history:'📈 핸디 변동이력',
+                   recent_compare:'🕒 최신 누적 에버 vs 최근 3개월' };
   if(titleEl) titleEl.textContent = titles[tab] || titles.avg;
   let sorted = Object.values(stats);
 
@@ -25982,6 +26009,38 @@ function renderRanking(tab) {
         <div class="rank-stats">
           <div class="rank-stat"><div class="rank-stat-val" style="color:var(--blue);">${s.handi}</div><div class="rank-stat-label">핸디</div></div>
           <div class="rank-stat"><div class="rank-stat-val" style="color:var(--accent);">${Math.round(s.avg)}</div><div class="rank-stat-label">에버리지</div></div>
+        </div></div>`;
+    }).join('');
+
+  } else if(tab === 'recent_compare') {
+    const { recent, cutoff, today } = getRecentAverageStats(3);
+    const fmt = date => `${date.getFullYear()}.${String(date.getMonth()+1).padStart(2,'0')}.${String(date.getDate()).padStart(2,'0')}`;
+    sorted = sorted.map(s => {
+      const r = recent[s.name];
+      const recentAvg = r ? r.avg : null;
+      return { ...s, recentAvg, recentAttend:r?.attend || 0, recentGames:r?.totalGames || 0,
+               change:recentAvg === null ? null : recentAvg - s.avg };
+    }).sort((a,b) => {
+      if(a.recentAvg === null) return 1;
+      if(b.recentAvg === null) return -1;
+      return b.recentAvg - a.recentAvg;
+    });
+    container.innerHTML = `<div style="padding:12px 16px;background:rgba(59,130,246,.08);border-bottom:1px solid var(--border);font-size:12px;color:var(--text2);">
+      최근 3개월 기준: <b>${fmt(cutoff)} ~ ${fmt(today)}</b> · 기간 내 실제 게임만 계산 · 누적 에버는 기존 전체 정기전 기준
+    </div>` + sorted.map((s,i) => {
+      const hasRecent = s.recentAvg !== null;
+      const diff = hasRecent ? Math.round(s.change) : null;
+      const diffColor = diff > 0 ? '#22c55e' : diff < 0 ? '#ef4444' : 'var(--text3)';
+      const diffText = !hasRecent ? '-' : diff > 0 ? `▲ ${diff}` : diff < 0 ? `▼ ${Math.abs(diff)}` : '± 0';
+      const rc = hasRecent && i===0?'rank-1':hasRecent && i===1?'rank-2':hasRecent && i===2?'rank-3':'rank-other';
+      return `<div class="rank-row">
+        <div class="rank-num ${rc}">${hasRecent?i+1:'-'}</div>
+        <div style="flex:1;min-width:130px;"><div class="rank-name">${s.name}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:3px;">최근 ${s.recentAttend}회 · ${s.recentGames}게임</div></div>
+        <div class="rank-stats" style="flex-wrap:wrap;">
+          <div class="rank-stat"><div class="rank-stat-val" style="color:var(--text2);">${Math.round(s.avg)}</div><div class="rank-stat-label">최신 누적</div></div>
+          <div class="rank-stat"><div class="rank-stat-val" style="color:var(--accent);">${hasRecent?Math.round(s.recentAvg):'-'}</div><div class="rank-stat-label">최근 3개월</div></div>
+          <div class="rank-stat"><div class="rank-stat-val" style="color:${diffColor};">${diffText}</div><div class="rank-stat-label">증감</div></div>
         </div></div>`;
     }).join('');
 
